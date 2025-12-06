@@ -20,6 +20,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
   resendConfirmationEmail: (email: string) => Promise<{ error?: string }>;
+  loadUserProfile: (session: Session) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const loadUserProfile = async (session: Session) => {
+  const loadUserProfile = async (session: Session, retryCount = 0) => {
     // Prevent multiple simultaneous profile loads
     if (isLoadingProfile) {
       console.log('AuthContext: Profile load already in progress, skipping');
@@ -91,17 +92,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('AuthContext: Error loading user profile:', error);
         
         // If the user profile doesn't exist yet (e.g., during signup before trigger completes),
-        // we'll wait a bit and try again
-        if (error.code === 'PGRST116') {
-          console.log('AuthContext: User profile not found, will retry in 2 seconds');
+        // we'll wait a bit and try again (max 3 retries)
+        if (error.code === 'PGRST116' && retryCount < 3) {
+          console.log(`AuthContext: User profile not found, retry ${retryCount + 1}/3 in 2 seconds`);
           setTimeout(() => {
             setIsLoadingProfile(false);
-            loadUserProfile(session);
+            loadUserProfile(session, retryCount + 1);
           }, 2000);
           return;
         }
         
-        throw error;
+        // If we've exhausted retries or it's a different error, just continue
+        // The user can still use the app, they just won't have their profile loaded yet
+        console.error('AuthContext: Could not load profile after retries');
+        setIsLoading(false);
+        setIsLoadingProfile(false);
+        return;
       }
 
       if (data) {
@@ -179,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: 'Failed to create user account' };
       }
 
-      console.log('AuthContext: User signed up successfully, profile created by trigger');
+      console.log('AuthContext: User signed up successfully, profile will be created by trigger');
       
       // Check if email confirmation is required
       if (authData.session) {
@@ -376,6 +382,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         updateUser,
         resendConfirmationEmail,
+        loadUserProfile,
       }}
     >
       {children}

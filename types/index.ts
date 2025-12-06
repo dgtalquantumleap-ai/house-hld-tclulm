@@ -7,6 +7,8 @@ export type TaskStatus = 'pending' | 'in-progress' | 'completed';
 
 export type EventRepeat = 'none' | 'daily' | 'weekly' | 'monthly';
 
+export type NotificationType = 'task' | 'event' | 'shopping' | 'expense' | 'invitation' | 'general';
+
 export interface User {
   id: string;
   name: string;
@@ -79,5 +81,17 @@ export interface Expense {
   createdByUserId: string;
   paidByUserId: string;
   date: string;
+  createdAt: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  householdId: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  read: boolean;
+  relatedId?: string;
   createdAt: string;
 }

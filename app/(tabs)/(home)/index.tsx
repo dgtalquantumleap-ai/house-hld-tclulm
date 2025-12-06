@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useEvents } from '@/hooks/useEvents';
 import { useShoppingList } from '@/hooks/useShoppingList';
+import { useExpenses } from '@/hooks/useExpenses';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
@@ -23,12 +24,13 @@ export default function HomeScreen() {
   const { tasks, isLoading: tasksLoading, refreshTasks } = useTasks();
   const { events, isLoading: eventsLoading, refreshEvents } = useEvents();
   const { items, isLoading: itemsLoading, refreshItems } = useShoppingList();
+  const { expenses, isLoading: expensesLoading, refreshExpenses, getTotalAmount } = useExpenses();
 
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refreshTasks(), refreshEvents(), refreshItems()]);
+    await Promise.all([refreshTasks(), refreshEvents(), refreshItems(), refreshExpenses()]);
     setRefreshing(false);
   };
 
@@ -52,7 +54,10 @@ export default function HomeScreen() {
   // Get needed shopping items
   const neededItems = items.filter(item => !item.purchased).slice(0, 3);
 
-  const isLoading = tasksLoading || eventsLoading || itemsLoading;
+  // Get total expenses
+  const totalExpenses = getTotalAmount();
+
+  const isLoading = tasksLoading || eventsLoading || itemsLoading || expensesLoading;
 
   if (isLoading && !refreshing) {
     return (
@@ -75,6 +80,42 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>Hello, {user?.name || 'there'}! 👋</Text>
           <Text style={styles.subtitle}>Here&apos;s what&apos;s happening today</Text>
         </View>
+      </View>
+
+      {/* Quick Stats */}
+      <View style={styles.statsRow}>
+        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/tasks')}>
+          <IconSymbol
+            ios_icon_name="checkmark.circle.fill"
+            android_material_icon_name="check_circle"
+            size={32}
+            color={colors.primary}
+          />
+          <Text style={styles.statNumber}>{todaysTasks.length}</Text>
+          <Text style={styles.statLabel}>Tasks Today</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/shopping')}>
+          <IconSymbol
+            ios_icon_name="cart.fill"
+            android_material_icon_name="shopping_cart"
+            size={32}
+            color={colors.secondary}
+          />
+          <Text style={styles.statNumber}>{neededItems.length}</Text>
+          <Text style={styles.statLabel}>To Buy</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/expenses')}>
+          <IconSymbol
+            ios_icon_name="dollarsign.circle.fill"
+            android_material_icon_name="attach_money"
+            size={32}
+            color={colors.accent}
+          />
+          <Text style={styles.statNumber}>${totalExpenses.toFixed(0)}</Text>
+          <Text style={styles.statLabel}>Expenses</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -205,7 +246,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   header: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   greeting: {
     fontSize: 28,
@@ -215,6 +256,32 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
+    color: colors.textSecondary,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 32,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.text,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   section: {

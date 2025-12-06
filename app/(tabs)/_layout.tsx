@@ -5,7 +5,7 @@ import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function TabLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return null;
@@ -13,6 +13,11 @@ export default function TabLayout() {
 
   if (!isAuthenticated) {
     return <Redirect href="/(auth)" />;
+  }
+
+  // Redirect to onboarding if user doesn't have a household
+  if (user && !user.householdId) {
+    return <Redirect href="/(auth)/onboarding" />;
   }
 
   const tabs: TabBarItem[] = [
@@ -29,16 +34,16 @@ export default function TabLayout() {
       label: 'Tasks',
     },
     {
-      name: 'calendar',
-      route: '/(tabs)/calendar',
-      icon: 'calendar',
-      label: 'Calendar',
-    },
-    {
       name: 'shopping',
       route: '/(tabs)/shopping',
       icon: 'shopping-cart',
       label: 'Shopping',
+    },
+    {
+      name: 'expenses',
+      route: '/(tabs)/expenses',
+      icon: 'attach-money',
+      label: 'Expenses',
     },
     {
       name: 'profile',
@@ -60,6 +65,7 @@ export default function TabLayout() {
         <Stack.Screen name="tasks" />
         <Stack.Screen name="calendar" />
         <Stack.Screen name="shopping" />
+        <Stack.Screen name="expenses" />
         <Stack.Screen name="profile" />
       </Stack>
       <FloatingTabBar tabs={tabs} />
