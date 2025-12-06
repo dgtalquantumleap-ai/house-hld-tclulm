@@ -30,8 +30,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const isLoadingProfileRef = useRef(false);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitializedRef = useRef(false);
 
   useEffect(() => {
+    // Prevent multiple initializations
+    if (hasInitializedRef.current) {
+      return;
+    }
+    hasInitializedRef.current = true;
+
     console.log('AuthContext: Initializing auth state');
     
     // Get initial session
@@ -333,22 +340,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('AuthContext: Signing out user');
       
-      // Clear user state first to prevent any race conditions
-      setUser(null);
-      
-      // Sign out from Supabase
+      // Sign out from Supabase first
       const { error } = await supabase.auth.signOut();
       
       if (error) {
         console.error('AuthContext: Sign out error:', error);
+        // Even if there's an error, clear the user state
+        setUser(null);
         throw error;
       }
       
+      // Clear user state after successful sign out
+      setUser(null);
       console.log('AuthContext: Sign out successful');
     } catch (error) {
       console.error('AuthContext: Sign out exception:', error);
-      // Even if there's an error, we've already cleared the user state
-      // This ensures the UI updates correctly
+      // Ensure user state is cleared even on error
+      setUser(null);
       throw error;
     }
   };

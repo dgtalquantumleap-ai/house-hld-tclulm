@@ -87,7 +87,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/tasks')}>
           <IconSymbol
             ios_icon_name="checkmark.circle.fill"
-            android_material_icon_name="check_circle"
+            android_material_icon_name="check-circle"
             size={32}
             color={colors.primary}
           />
@@ -98,7 +98,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/shopping')}>
           <IconSymbol
             ios_icon_name="cart.fill"
-            android_material_icon_name="shopping_cart"
+            android_material_icon_name="shopping-cart"
             size={32}
             color={colors.secondary}
           />
@@ -109,7 +109,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/expenses')}>
           <IconSymbol
             ios_icon_name="dollarsign.circle.fill"
-            android_material_icon_name="attach_money"
+            android_material_icon_name="attach-money"
             size={32}
             color={colors.accent}
           />
@@ -136,7 +136,7 @@ export default function HomeScreen() {
               <View style={styles.cardIcon}>
                 <IconSymbol
                   ios_icon_name="checkmark.circle"
-                  android_material_icon_name="check_circle"
+                  android_material_icon_name="check-circle"
                   size={24}
                   color={colors.primary}
                 />
@@ -174,7 +174,7 @@ export default function HomeScreen() {
               <View style={styles.cardIcon}>
                 <IconSymbol
                   ios_icon_name="calendar"
-                  android_material_icon_name="calendar_today"
+                  android_material_icon_name="event"
                   size={24}
                   color={colors.accent}
                 />
@@ -212,7 +212,7 @@ export default function HomeScreen() {
               <View style={styles.cardIcon}>
                 <IconSymbol
                   ios_icon_name="cart"
-                  android_material_icon_name="shopping_cart"
+                  android_material_icon_name="shopping-cart"
                   size={24}
                   color={colors.secondary}
                 />

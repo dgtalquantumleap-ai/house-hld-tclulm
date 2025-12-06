@@ -1,12 +1,13 @@
 
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export default function AuthLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  const hasRedirectedRef = useRef(false);
 
   useEffect(() => {
     if (isLoading) {
@@ -15,17 +16,29 @@ export default function AuthLayout() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
+    // Only redirect if we're in the auth group and haven't redirected yet
+    if (!inAuthGroup) {
+      hasRedirectedRef.current = false;
+      return;
+    }
+
     // If authenticated and has household, go to tabs
-    if (isAuthenticated && user?.householdId && inAuthGroup) {
+    if (isAuthenticated && user?.householdId && !hasRedirectedRef.current) {
       console.log('AuthLayout: Redirecting to tabs (has household)');
-      router.replace('/(tabs)/(home)');
+      hasRedirectedRef.current = true;
+      setTimeout(() => {
+        router.replace('/(tabs)/(home)');
+      }, 0);
       return;
     }
 
     // If authenticated but no household, go to onboarding
-    if (isAuthenticated && !user?.householdId && inAuthGroup && segments[1] !== 'onboarding') {
+    if (isAuthenticated && !user?.householdId && segments[1] !== 'onboarding' && !hasRedirectedRef.current) {
       console.log('AuthLayout: Redirecting to onboarding (no household)');
-      router.replace('/(auth)/onboarding');
+      hasRedirectedRef.current = true;
+      setTimeout(() => {
+        router.replace('/(auth)/onboarding');
+      }, 0);
       return;
     }
   }, [isAuthenticated, isLoading, user?.householdId, segments]);

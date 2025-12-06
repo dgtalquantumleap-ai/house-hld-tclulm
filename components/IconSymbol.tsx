@@ -1,3 +1,4 @@
+
 // This file is a fallback for using MaterialIcons on Android and web.
 
 import React from "react";
@@ -9,6 +10,9 @@ import {
   ViewStyle,
 } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+
+// Type for MaterialIcons glyph names
+type MaterialIconName = keyof typeof MaterialIcons.glyphMap;
 
 /**
  * An icon component that uses native SFSymbols on iOS, and MaterialIcons on Android and web. This ensures a consistent look across platforms, and optimal resource usage.
@@ -23,7 +27,7 @@ export function IconSymbol({
   style,
 }: {
   ios_icon_name?: string | undefined;
-  android_material_icon_name: keyof typeof MaterialIcons.glyphMap;
+  android_material_icon_name: MaterialIconName;
   size?: number;
   color: string | OpaqueColorValue;
   style?: StyleProp<ViewStyle>;

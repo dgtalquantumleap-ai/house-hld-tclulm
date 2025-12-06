@@ -25,12 +25,13 @@ export default function FloatingTabBar({ tabs }: FloatingTabBarProps) {
   };
 
   const getIconNames = (icon: string, active: boolean) => {
-    const iconMap: { [key: string]: { ios: string; iosFilled: string; android: string } } = {
+    // Map icon names to proper SF Symbols (iOS) and Material Icons (Android)
+    const iconMap: { [key: string]: { ios: string; iosFilled: string; android: any } } = {
       'home': { ios: 'house', iosFilled: 'house.fill', android: 'home' },
-      'check-circle': { ios: 'checkmark.circle', iosFilled: 'checkmark.circle.fill', android: 'check_circle' },
-      'calendar': { ios: 'calendar', iosFilled: 'calendar.circle.fill', android: 'calendar_today' },
-      'shopping-cart': { ios: 'cart', iosFilled: 'cart.fill', android: 'shopping_cart' },
-      'attach-money': { ios: 'dollarsign.circle', iosFilled: 'dollarsign.circle.fill', android: 'attach_money' },
+      'check-circle': { ios: 'checkmark.circle', iosFilled: 'checkmark.circle.fill', android: 'check-circle' },
+      'calendar': { ios: 'calendar', iosFilled: 'calendar.circle.fill', android: 'event' },
+      'shopping-cart': { ios: 'cart', iosFilled: 'cart.fill', android: 'shopping-cart' },
+      'attach-money': { ios: 'dollarsign.circle', iosFilled: 'dollarsign.circle.fill', android: 'attach-money' },
       'person': { ios: 'person', iosFilled: 'person.fill', android: 'person' },
     };
 
