@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,41 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useHousehold } from '@/hooks/useHousehold';
 import { colors, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { household, isLoading: householdLoading } = useHousehold();
+  const [membersCount, setMembersCount] = useState(0);
+
+  useEffect(() => {
+    loadMembersCount();
+  }, [user?.householdId]);
+
+  const loadMembersCount = async () => {
+    if (!user?.householdId) return;
+
+    try {
+      const { count, error } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('household_id', user.householdId);
+
+      if (error) throw error;
+      setMembersCount(count || 0);
+    } catch (error) {
+      console.error('Error loading members count:', error);
+    }
+  };
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -40,36 +66,59 @@ export default function ProfileScreen() {
     );
   };
 
+  const handleShareInviteCode = async () => {
+    if (!household?.inviteCode) {
+      Alert.alert('Error', 'No invite code available');
+      return;
+    }
+
+    try {
+      await Share.share({
+        message: `Join my household "${household.name}" on HouseHLD! Use invite code: ${household.inviteCode}`,
+      });
+    } catch (error) {
+      console.error('Error sharing invite code:', error);
+    }
+  };
+
   const menuItems = [
     {
       id: 'household',
       title: 'Household Settings',
       icon: 'house.fill',
       androidIcon: 'home',
-      onPress: () => console.log('Household settings'),
+      onPress: () => Alert.alert('Coming Soon', 'Household settings will be available soon'),
     },
     {
       id: 'members',
       title: 'Manage Members',
       icon: 'person.2.fill',
       androidIcon: 'people',
-      onPress: () => console.log('Manage members'),
+      onPress: () => Alert.alert('Coming Soon', 'Member management will be available soon'),
     },
     {
       id: 'notifications',
       title: 'Notifications',
       icon: 'bell.fill',
       androidIcon: 'notifications',
-      onPress: () => console.log('Notifications'),
+      onPress: () => Alert.alert('Coming Soon', 'Notification settings will be available soon'),
     },
     {
       id: 'help',
       title: 'Help & Support',
       icon: 'questionmark.circle.fill',
       androidIcon: 'help',
-      onPress: () => console.log('Help'),
+      onPress: () => Alert.alert('Help', 'For support, please contact support@househld.app'),
     },
   ];
+
+  if (householdLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -86,17 +135,37 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Household</Text>
-        <View style={styles.householdCard}>
-          <Text style={styles.householdName}>Smith Family</Text>
-          <Text style={styles.householdMembers}>4 members</Text>
-          <View style={styles.inviteCodeContainer}>
-            <Text style={styles.inviteCodeLabel}>Invite Code:</Text>
-            <Text style={styles.inviteCode}>ABC123</Text>
+      {household && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Household</Text>
+          <View style={styles.householdCard}>
+            <Text style={styles.householdName}>{household.name}</Text>
+            {household.address && (
+              <Text style={styles.householdAddress}>{household.address}</Text>
+            )}
+            <Text style={styles.householdMembers}>{membersCount} members</Text>
+            {household.inviteCode && (
+              <View style={styles.inviteCodeContainer}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inviteCodeLabel}>Invite Code:</Text>
+                  <Text style={styles.inviteCode}>{household.inviteCode}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.shareButton}
+                  onPress={handleShareInviteCode}
+                >
+                  <IconSymbol
+                    ios_icon_name="square.and.arrow.up"
+                    android_material_icon_name="share"
+                    size={20}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Settings</Text>
@@ -216,6 +285,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 4,
   },
+  householdAddress: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
   householdMembers: {
     fontSize: 14,
     color: colors.textSecondary,
@@ -229,14 +303,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   inviteCodeLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
-    marginRight: 8,
+    marginBottom: 4,
   },
   inviteCode: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.primary,
+  },
+  shareButton: {
+    padding: 8,
   },
   menuItem: {
     flexDirection: 'row',

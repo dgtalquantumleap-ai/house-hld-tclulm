@@ -8,26 +8,39 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useHousehold } from '@/hooks/useHousehold';
 import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
 import { UserRole } from '@/types';
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { updateUser } = useAuth();
+  const { updateUser, user } = useAuth();
+  const { createHousehold, joinHousehold } = useHousehold();
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<UserRole>('Adult');
   const [householdName, setHouseholdName] = useState('');
+  const [householdAddress, setHouseholdAddress] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [isCreating, setIsCreating] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   const roles: UserRole[] = ['Adult', 'Parent', 'Child', 'Roommate'];
 
-  const handleRoleSelect = (selectedRole: UserRole) => {
+  const handleRoleSelect = async (selectedRole: UserRole) => {
     setRole(selectedRole);
-    setStep(2);
+    
+    // Update user role immediately
+    try {
+      await updateUser({ role: selectedRole });
+      setStep(2);
+    } catch (error) {
+      console.error('Error updating role:', error);
+      Alert.alert('Error', 'Failed to update role');
+    }
   };
 
   const handleCreateHousehold = async () => {
@@ -36,20 +49,33 @@ export default function OnboardingScreen() {
       return;
     }
 
+    setIsLoading(true);
     try {
       console.log('Creating household:', householdName);
-      // TODO: Create household in Supabase
-      // const { data, error } = await supabase
-      //   .from('households')
-      //   .insert([{ name: householdName, created_by_user_id: user.id }])
-      //   .select()
-      //   .single();
+      const { data, error } = await createHousehold(householdName, householdAddress);
       
-      await updateUser({ role, householdId: '1' });
-      router.replace('/(tabs)/(home)');
-    } catch (error) {
+      if (error) {
+        Alert.alert('Error', error);
+        return;
+      }
+
+      if (data) {
+        Alert.alert(
+          'Success!',
+          `Your household "${householdName}" has been created. Invite code: ${data.invite_code}`,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/(tabs)/(home)'),
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
       console.error('Create household error:', error);
-      Alert.alert('Error', 'Failed to create household');
+      Alert.alert('Error', error.message || 'Failed to create household');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -59,20 +85,33 @@ export default function OnboardingScreen() {
       return;
     }
 
+    setIsLoading(true);
     try {
       console.log('Joining household with code:', inviteCode);
-      // TODO: Join household in Supabase
-      // const { data, error } = await supabase
-      //   .from('households')
-      //   .select('*')
-      //   .eq('invite_code', inviteCode)
-      //   .single();
+      const { data, error } = await joinHousehold(inviteCode.toUpperCase());
       
-      await updateUser({ role, householdId: '1' });
-      router.replace('/(tabs)/(home)');
-    } catch (error) {
+      if (error) {
+        Alert.alert('Error', error);
+        return;
+      }
+
+      if (data) {
+        Alert.alert(
+          'Success!',
+          `You have joined "${data.name}"`,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/(tabs)/(home)'),
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
       console.error('Join household error:', error);
-      Alert.alert('Error', 'Invalid invite code');
+      Alert.alert('Error', error.message || 'Failed to join household');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -126,13 +165,28 @@ export default function OnboardingScreen() {
               placeholderTextColor={colors.textSecondary}
               value={householdName}
               onChangeText={setHouseholdName}
+              editable={!isLoading}
+            />
+
+            <TextInput
+              style={commonStyles.input}
+              placeholder="Address (optional)"
+              placeholderTextColor={colors.textSecondary}
+              value={householdAddress}
+              onChangeText={setHouseholdAddress}
+              editable={!isLoading}
             />
 
             <TouchableOpacity
-              style={[buttonStyles.primary, styles.button]}
+              style={[buttonStyles.primary, styles.button, isLoading && styles.buttonDisabled]}
               onPress={handleCreateHousehold}
+              disabled={isLoading}
             >
-              <Text style={buttonStyles.text}>Create Household</Text>
+              {isLoading ? (
+                <ActivityIndicator color={colors.card} />
+              ) : (
+                <Text style={buttonStyles.text}>Create Household</Text>
+              )}
             </TouchableOpacity>
           </React.Fragment>
         ) : (
@@ -144,13 +198,19 @@ export default function OnboardingScreen() {
               value={inviteCode}
               onChangeText={setInviteCode}
               autoCapitalize="characters"
+              editable={!isLoading}
             />
 
             <TouchableOpacity
-              style={[buttonStyles.primary, styles.button]}
+              style={[buttonStyles.primary, styles.button, isLoading && styles.buttonDisabled]}
               onPress={handleJoinHousehold}
+              disabled={isLoading}
             >
-              <Text style={buttonStyles.text}>Join Household</Text>
+              {isLoading ? (
+                <ActivityIndicator color={colors.card} />
+              ) : (
+                <Text style={buttonStyles.text}>Join Household</Text>
+              )}
             </TouchableOpacity>
           </React.Fragment>
         )}
@@ -158,6 +218,7 @@ export default function OnboardingScreen() {
         <TouchableOpacity
           style={styles.switchButton}
           onPress={() => setIsCreating(!isCreating)}
+          disabled={isLoading}
         >
           <Text style={styles.switchText}>
             {isCreating
@@ -222,6 +283,9 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   switchButton: {
     marginTop: 24,

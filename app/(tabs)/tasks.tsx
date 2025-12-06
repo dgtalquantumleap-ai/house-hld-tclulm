@@ -8,117 +8,156 @@ import {
   StyleSheet,
   TextInput,
   Modal,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Task, TaskStatus } from '@/types';
+import { useTasks } from '@/hooks/useTasks';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function TasksScreen() {
+  const { user } = useAuth();
+  const { tasks, isLoading, createTask, updateTask, deleteTask, refreshTasks } = useTasks();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: '1',
-      householdId: '1',
-      title: 'Take out trash',
-      description: 'Weekly trash collection',
-      assignedToUserId: '1',
-      frequency: 'weekly',
-      dueDate: new Date().toISOString(),
-      status: 'pending',
-      createdByUserId: '1',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: '2',
-      householdId: '1',
-      title: 'Vacuum living room',
-      frequency: 'weekly',
-      status: 'pending',
-      createdByUserId: '1',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ]);
+  const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const toggleTaskStatus = (taskId: string) => {
-    setTasks(tasks.map(task => {
-      if (task.id === taskId) {
-        return {
-          ...task,
-          status: task.status === 'completed' ? 'pending' : 'completed' as TaskStatus,
-        };
-      }
-      return task;
-    }));
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshTasks();
+    setRefreshing(false);
   };
 
-  const addTask = () => {
-    if (!newTaskTitle.trim()) return;
+  const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+    const { error } = await updateTask(taskId, { status: newStatus });
+    
+    if (error) {
+      Alert.alert('Error', error);
+    }
+  };
 
-    const newTask: Task = {
-      id: Date.now().toString(),
-      householdId: '1',
-      title: newTaskTitle,
-      frequency: 'one-time',
-      status: 'pending',
-      createdByUserId: '1',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+  const addTask = async () => {
+    if (!newTaskTitle.trim()) {
+      Alert.alert('Error', 'Please enter a task title');
+      return;
+    }
 
-    setTasks([...tasks, newTask]);
-    setNewTaskTitle('');
-    setShowAddModal(false);
+    setIsSubmitting(true);
+    try {
+      const { error } = await createTask({
+        title: newTaskTitle,
+        description: newTaskDescription || undefined,
+        frequency: 'one-time',
+        status: 'pending',
+      });
+
+      if (error) {
+        Alert.alert('Error', error);
+      } else {
+        setNewTaskTitle('');
+        setNewTaskDescription('');
+        setShowAddModal(false);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    Alert.alert(
+      'Delete Task',
+      'Are you sure you want to delete this task?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await deleteTask(taskId);
+            if (error) {
+              Alert.alert('Error', error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const pendingTasks = tasks.filter(t => t.status !== 'completed');
   const completedTasks = tasks.filter(t => t.status === 'completed');
 
+  const canCreateTask = user?.role === 'Adult' || user?.role === 'Parent';
+
+  if (isLoading && !refreshing) {
+    return (
+      <View style={[styles.container, commonStyles.centerContent]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Tasks & Chores</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
-        >
-          <IconSymbol
-            ios_icon_name="plus"
-            android_material_icon_name="add"
-            size={24}
-            color={colors.card}
-          />
-        </TouchableOpacity>
+        {canCreateTask && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowAddModal(true)}
+          >
+            <IconSymbol
+              ios_icon_name="plus"
+              android_material_icon_name="add"
+              size={24}
+              color={colors.card}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Pending ({pendingTasks.length})</Text>
-          {pendingTasks.map((task) => (
-            <TouchableOpacity
-              key={task.id}
-              style={styles.taskCard}
-              onPress={() => toggleTaskStatus(task.id)}
-            >
-              <View style={styles.checkbox}>
-                <IconSymbol
-                  ios_icon_name="circle"
-                  android_material_icon_name="radio_button_unchecked"
-                  size={24}
-                  color={colors.primary}
-                />
-              </View>
-              <View style={styles.taskContent}>
-                <Text style={styles.taskTitle}>{task.title}</Text>
-                {task.description && (
-                  <Text style={styles.taskDescription}>{task.description}</Text>
-                )}
-                <Text style={styles.taskFrequency}>{task.frequency}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {pendingTasks.length > 0 ? (
+            pendingTasks.map((task) => (
+              <TouchableOpacity
+                key={task.id}
+                style={styles.taskCard}
+                onPress={() => toggleTaskStatus(task.id, task.status)}
+                onLongPress={() => canCreateTask && handleDeleteTask(task.id)}
+              >
+                <View style={styles.checkbox}>
+                  <IconSymbol
+                    ios_icon_name="circle"
+                    android_material_icon_name="radio_button_unchecked"
+                    size={24}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={styles.taskContent}>
+                  <Text style={styles.taskTitle}>{task.title}</Text>
+                  {task.description && (
+                    <Text style={styles.taskDescription}>{task.description}</Text>
+                  )}
+                  <Text style={styles.taskFrequency}>{task.frequency}</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No pending tasks</Text>
+            </View>
+          )}
         </View>
 
         {completedTasks.length > 0 && (
@@ -128,7 +167,7 @@ export default function TasksScreen() {
               <TouchableOpacity
                 key={task.id}
                 style={[styles.taskCard, styles.completedCard]}
-                onPress={() => toggleTaskStatus(task.id)}
+                onPress={() => toggleTaskStatus(task.id, task.status)}
               >
                 <View style={styles.checkbox}>
                   <IconSymbol
@@ -165,19 +204,36 @@ export default function TasksScreen() {
               value={newTaskTitle}
               onChangeText={setNewTaskTitle}
               autoFocus
+              editable={!isSubmitting}
+            />
+            <TextInput
+              style={[commonStyles.input, styles.textArea]}
+              placeholder="Description (optional)"
+              placeholderTextColor={colors.textSecondary}
+              value={newTaskDescription}
+              onChangeText={setNewTaskDescription}
+              multiline
+              numberOfLines={3}
+              editable={!isSubmitting}
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[buttonStyles.outline, styles.modalButton]}
                 onPress={() => setShowAddModal(false)}
+                disabled={isSubmitting}
               >
                 <Text style={buttonStyles.outlineText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[buttonStyles.primary, styles.modalButton]}
                 onPress={addTask}
+                disabled={isSubmitting}
               >
-                <Text style={buttonStyles.text}>Add</Text>
+                {isSubmitting ? (
+                  <ActivityIndicator color={colors.card} />
+                ) : (
+                  <Text style={buttonStyles.text}>Add</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -264,6 +320,18 @@ const styles = StyleSheet.create({
     color: colors.primary,
     textTransform: 'capitalize',
   },
+  emptyState: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -281,6 +349,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     marginBottom: 24,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
   },
   modalButtons: {
     flexDirection: 'row',

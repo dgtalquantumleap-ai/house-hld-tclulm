@@ -3,14 +3,20 @@ import { Stack, Redirect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function AuthLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return null;
   }
 
-  if (isAuthenticated) {
+  // If authenticated and has household, go to tabs
+  if (isAuthenticated && user?.householdId) {
     return <Redirect href="/(tabs)/(home)" />;
+  }
+
+  // If authenticated but no household, go to onboarding
+  if (isAuthenticated && !user?.householdId) {
+    return <Redirect href="/(auth)/onboarding" />;
   }
 
   return (

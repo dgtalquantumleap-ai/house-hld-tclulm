@@ -1,40 +1,75 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTasks } from '@/hooks/useTasks';
+import { useEvents } from '@/hooks/useEvents';
+import { useShoppingList } from '@/hooks/useShoppingList';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { tasks, isLoading: tasksLoading, refreshTasks } = useTasks();
+  const { events, isLoading: eventsLoading, refreshEvents } = useEvents();
+  const { items, isLoading: itemsLoading, refreshItems } = useShoppingList();
 
-  const todaysTasks = [
-    { id: '1', title: 'Take out trash', assignedTo: 'You', dueTime: '10:00 AM' },
-    { id: '2', title: 'Vacuum living room', assignedTo: 'Sarah', dueTime: '2:00 PM' },
-    { id: '3', title: 'Water plants', assignedTo: 'You', dueTime: '5:00 PM' },
-  ];
+  const [refreshing, setRefreshing] = React.useState(false);
 
-  const upcomingEvents = [
-    { id: '1', title: 'Garbage Day', date: 'Tomorrow', time: '7:00 AM' },
-    { id: '2', title: 'Family Dinner', date: 'Friday', time: '6:30 PM' },
-  ];
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([refreshTasks(), refreshEvents(), refreshItems()]);
+    setRefreshing(false);
+  };
 
-  const shoppingItems = [
-    { id: '1', name: 'Milk', category: 'Dairy' },
-    { id: '2', name: 'Bread', category: 'Bakery' },
-    { id: '3', name: 'Eggs', category: 'Dairy' },
-  ];
+  // Filter today's tasks
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const todaysTasks = tasks.filter(task => {
+    if (!task.dueDate) return false;
+    const dueDate = new Date(task.dueDate);
+    return dueDate >= today && dueDate < tomorrow && task.status !== 'completed';
+  }).slice(0, 3);
+
+  // Get upcoming events
+  const upcomingEvents = events
+    .filter(event => new Date(event.date) >= today)
+    .slice(0, 3);
+
+  // Get needed shopping items
+  const neededItems = items.filter(item => !item.purchased).slice(0, 3);
+
+  const isLoading = tasksLoading || eventsLoading || itemsLoading;
+
+  if (isLoading && !refreshing) {
+    return (
+      <View style={[styles.container, commonStyles.centerContent]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView 
+      style={styles.container} 
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Hello, {user?.name || 'there'}! 👋</Text>
@@ -52,7 +87,11 @@ export default function HomeScreen() {
 
         {todaysTasks.length > 0 ? (
           todaysTasks.map((task) => (
-            <TouchableOpacity key={task.id} style={styles.card}>
+            <TouchableOpacity 
+              key={task.id} 
+              style={styles.card}
+              onPress={() => router.push('/(tabs)/tasks')}
+            >
               <View style={styles.cardIcon}>
                 <IconSymbol
                   ios_icon_name="checkmark.circle"
@@ -64,7 +103,7 @@ export default function HomeScreen() {
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>{task.title}</Text>
                 <Text style={styles.cardSubtitle}>
-                  {task.assignedTo} • {task.dueTime}
+                  {task.frequency} • {task.dueDate ? new Date(task.dueDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'No time set'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -84,24 +123,34 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {upcomingEvents.map((event) => (
-          <TouchableOpacity key={event.id} style={styles.card}>
-            <View style={styles.cardIcon}>
-              <IconSymbol
-                ios_icon_name="calendar"
-                android_material_icon_name="calendar_today"
-                size={24}
-                color={colors.accent}
-              />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>{event.title}</Text>
-              <Text style={styles.cardSubtitle}>
-                {event.date} • {event.time}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {upcomingEvents.length > 0 ? (
+          upcomingEvents.map((event) => (
+            <TouchableOpacity 
+              key={event.id} 
+              style={styles.card}
+              onPress={() => router.push('/(tabs)/calendar')}
+            >
+              <View style={styles.cardIcon}>
+                <IconSymbol
+                  ios_icon_name="calendar"
+                  android_material_icon_name="calendar_today"
+                  size={24}
+                  color={colors.accent}
+                />
+              </View>
+              <View style={styles.cardContent}>
+                <Text style={styles.cardTitle}>{event.title}</Text>
+                <Text style={styles.cardSubtitle}>
+                  {new Date(event.date).toLocaleDateString()} • {event.time || 'All day'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No upcoming events</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -112,22 +161,34 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {shoppingItems.map((item) => (
-          <View key={item.id} style={styles.card}>
-            <View style={styles.cardIcon}>
-              <IconSymbol
-                ios_icon_name="cart"
-                android_material_icon_name="shopping_cart"
-                size={24}
-                color={colors.secondary}
-              />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardSubtitle}>{item.category}</Text>
-            </View>
+        {neededItems.length > 0 ? (
+          neededItems.map((item) => (
+            <TouchableOpacity 
+              key={item.id} 
+              style={styles.card}
+              onPress={() => router.push('/(tabs)/shopping')}
+            >
+              <View style={styles.cardIcon}>
+                <IconSymbol
+                  ios_icon_name="cart"
+                  android_material_icon_name="shopping_cart"
+                  size={24}
+                  color={colors.secondary}
+                />
+              </View>
+              <View style={styles.cardContent}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Text style={styles.cardSubtitle}>
+                  {item.quantity || ''} {item.category ? `• ${item.category}` : ''}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>Shopping list is empty</Text>
           </View>
-        ))}
+        )}
       </View>
     </ScrollView>
   );
