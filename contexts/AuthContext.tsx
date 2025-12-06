@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       setIsLoadingProfile(true);
-      console.log('AuthContext: Loading user profile for:', session.user.id);
+      console.log('AuthContext: Loading user profile for:', session.user.id, `(attempt ${retryCount + 1})`);
       
       const { data, error } = await supabase
         .from('users')
@@ -92,9 +92,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('AuthContext: Error loading user profile:', error);
         
         // If the user profile doesn't exist yet (e.g., during signup before trigger completes),
-        // we'll wait a bit and try again (max 3 retries)
-        if (error.code === 'PGRST116' && retryCount < 3) {
-          console.log(`AuthContext: User profile not found, retry ${retryCount + 1}/3 in 2 seconds`);
+        // we'll wait a bit and try again (max 10 retries over 20 seconds)
+        if (error.code === 'PGRST116' && retryCount < 10) {
+          console.log(`AuthContext: User profile not found, retry ${retryCount + 1}/10 in 2 seconds`);
           setTimeout(() => {
             setIsLoadingProfile(false);
             loadUserProfile(session, retryCount + 1);
@@ -102,16 +102,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         
-        // If we've exhausted retries or it's a different error, just continue
-        // The user can still use the app, they just won't have their profile loaded yet
-        console.error('AuthContext: Could not load profile after retries');
+        // If we've exhausted retries, try to create the profile manually as a fallback
+        if (error.code === 'PGRST116' && retryCount >= 10) {
+          console.log('AuthContext: Profile not found after retries, attempting manual creation');
+          try {
+            const { data: newProfile, error: insertError } = await supabase
+              .from('users')
+              .insert({
+                id: session.user.id,
+                email: session.user.email || '',
+                name: session.user.user_metadata?.name || '',
+                role: session.user.user_metadata?.role || 'Adult',
+              })
+              .select()
+              .single();
+
+            if (insertError) {
+              console.error('AuthContext: Failed to create profile manually:', insertError);
+              setIsLoading(false);
+              setIsLoadingProfile(false);
+              return;
+            }
+
+            if (newProfile) {
+              console.log('AuthContext: Profile created manually:', newProfile.name);
+              setUser({
+                id: newProfile.id,
+                name: newProfile.name,
+                email: newProfile.email,
+                phone: newProfile.phone,
+                photoUrl: newProfile.photo_url,
+                role: newProfile.role,
+                householdId: newProfile.household_id,
+                createdAt: newProfile.created_at,
+                updatedAt: newProfile.updated_at,
+              });
+              setIsLoading(false);
+              setIsLoadingProfile(false);
+              return;
+            }
+          } catch (fallbackError) {
+            console.error('AuthContext: Exception during manual profile creation:', fallbackError);
+          }
+        }
+        
+        // If it's a different error, just continue
+        console.error('AuthContext: Could not load profile');
         setIsLoading(false);
         setIsLoadingProfile(false);
         return;
       }
 
       if (data) {
-        console.log('AuthContext: User profile loaded:', data.name);
+        console.log('AuthContext: User profile loaded successfully:', data.email);
         setUser({
           id: data.id,
           name: data.name,
@@ -148,6 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.session) {
+        console.log('AuthContext: Sign in successful, loading profile');
         await loadUserProfile(data.session);
       }
 

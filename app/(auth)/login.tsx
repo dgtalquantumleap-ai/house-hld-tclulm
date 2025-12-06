@@ -63,9 +63,9 @@ export default function LoginScreen() {
           Alert.alert('Login Failed', result.error);
         }
       } else {
-        console.log('Login successful, navigating to home');
+        console.log('Login successful - auth layout will handle navigation');
+        // Don't manually navigate - let the auth layout redirect based on user state
         setShowResendButton(false);
-        router.replace('/(tabs)/(home)');
       }
     } catch (error: any) {
       console.error('Login exception:', error);
