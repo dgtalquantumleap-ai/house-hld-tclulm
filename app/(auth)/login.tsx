@@ -34,6 +34,7 @@ export default function LoginScreen() {
     setIsLoading(true);
     setShowResendButton(false);
     try {
+      console.log('Login: Attempting to sign in');
       const result = await signIn(email, password);
       
       if (result.error) {
@@ -63,8 +64,8 @@ export default function LoginScreen() {
           Alert.alert('Login Failed', result.error);
         }
       } else {
-        console.log('Login successful - auth layout will handle navigation');
-        // Don't manually navigate - let the auth layout redirect based on user state
+        console.log('Login: Sign in successful, AuthLayout will handle navigation');
+        // Don't manually navigate - let the AuthLayout handle it
         setShowResendButton(false);
       }
     } catch (error: any) {

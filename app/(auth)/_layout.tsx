@@ -1,47 +1,64 @@
 
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 export default function AuthLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const segments = useSegments();
-  const hasRedirectedRef = useRef(false);
 
   useEffect(() => {
+    console.log('AuthLayout: Effect triggered', {
+      isLoading,
+      isAuthenticated,
+      hasHousehold: !!user?.householdId,
+      segments: segments.join('/'),
+    });
+
     if (isLoading) {
+      console.log('AuthLayout: Still loading, waiting...');
       return;
     }
 
     const inAuthGroup = segments[0] === '(auth)';
+    console.log('AuthLayout: In auth group?', inAuthGroup);
 
-    // Only redirect if we're in the auth group and haven't redirected yet
+    // If not in auth group, don't do anything
     if (!inAuthGroup) {
-      hasRedirectedRef.current = false;
       return;
     }
 
-    // If authenticated and has household, go to tabs
-    if (isAuthenticated && user?.householdId && !hasRedirectedRef.current) {
-      console.log('AuthLayout: Redirecting to tabs (has household)');
-      hasRedirectedRef.current = true;
+    // If authenticated and has household, redirect to home
+    if (isAuthenticated && user?.householdId) {
+      console.log('AuthLayout: User authenticated with household, redirecting to home');
+      // Use replace to prevent back navigation to auth screens
       setTimeout(() => {
         router.replace('/(tabs)/(home)');
-      }, 0);
+      }, 100);
       return;
     }
 
-    // If authenticated but no household, go to onboarding
-    if (isAuthenticated && !user?.householdId && segments[1] !== 'onboarding' && !hasRedirectedRef.current) {
-      console.log('AuthLayout: Redirecting to onboarding (no household)');
-      hasRedirectedRef.current = true;
-      setTimeout(() => {
-        router.replace('/(auth)/onboarding');
-      }, 0);
+    // If authenticated but no household, redirect to onboarding
+    if (isAuthenticated && !user?.householdId) {
+      console.log('AuthLayout: User authenticated without household, redirecting to onboarding');
+      // Only redirect if not already on onboarding
+      if (segments[1] !== 'onboarding') {
+        setTimeout(() => {
+          router.replace('/(auth)/onboarding');
+        }, 100);
+      }
       return;
     }
-  }, [isAuthenticated, isLoading, user?.householdId, segments]);
+
+    // If not authenticated and not on welcome/login/signup, redirect to welcome
+    if (!isAuthenticated && segments[1] !== 'index' && segments[1] !== 'login' && segments[1] !== 'signup') {
+      console.log('AuthLayout: Not authenticated, redirecting to welcome');
+      setTimeout(() => {
+        router.replace('/(auth)/');
+      }, 100);
+    }
+  }, [isAuthenticated, isLoading, user?.householdId, segments, router]);
 
   if (isLoading) {
     return null;

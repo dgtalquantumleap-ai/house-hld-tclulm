@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Prevent multiple initializations
     if (hasInitializedRef.current) {
+      console.log('AuthContext: Already initialized, skipping');
       return;
     }
     hasInitializedRef.current = true;
@@ -52,11 +53,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('AuthContext: Auth state changed:', _event);
-      if (session) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('AuthContext: Auth state changed:', event, session ? 'Session exists' : 'No session');
+      
+      if (event === 'SIGNED_IN' && session) {
+        console.log('AuthContext: User signed in, loading profile');
         await loadUserProfile(session);
+      } else if (event === 'SIGNED_OUT') {
+        console.log('AuthContext: User signed out, clearing state');
+        setUser(null);
+        setIsLoading(false);
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        console.log('AuthContext: Token refreshed');
+        // Don't reload profile on token refresh if we already have user data
+        if (!user) {
+          await loadUserProfile(session);
+        }
+      } else if (session) {
+        // For other events with a session, load profile if we don't have user data
+        if (!user) {
+          await loadUserProfile(session);
+        }
       } else {
+        // No session, clear user
         setUser(null);
         setIsLoading(false);
       }
@@ -74,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const subscription2 = Linking.addEventListener('url', handleDeepLink);
 
     return () => {
+      console.log('AuthContext: Cleaning up subscriptions');
       subscription.unsubscribe();
       subscription2.remove();
       if (retryTimeoutRef.current) {
@@ -165,8 +185,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data) {
-        console.log('AuthContext: User profile loaded successfully:', data.email);
-        setUser({
+        console.log('AuthContext: User profile loaded successfully:', data.email, 'Household:', data.household_id || 'None');
+        const userData = {
           id: data.id,
           name: data.name,
           email: data.email,
@@ -176,13 +196,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           householdId: data.household_id,
           createdAt: data.created_at,
           updatedAt: data.updated_at,
-        });
+        };
+        setUser(userData);
+        console.log('AuthContext: User state updated, isAuthenticated will be:', !!userData);
       }
     } catch (error) {
       console.error('AuthContext: Error in loadUserProfile:', error);
       // Don't throw - just log the error and continue
       // The user can still use the app, they just won't have their profile loaded
     } finally {
+      console.log('AuthContext: Setting isLoading to false');
       setIsLoading(false);
       isLoadingProfileRef.current = false;
     }
@@ -202,7 +225,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.session) {
-        console.log('AuthContext: Sign in successful, loading profile');
+        console.log('AuthContext: Sign in successful, session created');
+        // The onAuthStateChange listener will handle loading the profile
+        // But we can also load it here to be sure
         await loadUserProfile(data.session);
       }
 
@@ -391,6 +416,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data) {
+        console.log('AuthContext: User updated successfully');
         setUser({
           id: data.id,
           name: data.name,
@@ -434,22 +460,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const contextValue = {
+    user,
+    isLoading,
+    isAuthenticated: !!user,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    signInWithApple,
+    signOut,
+    updateUser,
+    resendConfirmationEmail,
+    loadUserProfile,
+  };
+
+  console.log('AuthContext: Rendering with state:', {
+    hasUser: !!user,
+    isLoading,
+    isAuthenticated: !!user,
+    householdId: user?.householdId || 'None',
+  });
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        isAuthenticated: !!user,
-        signIn,
-        signUp,
-        signInWithGoogle,
-        signInWithApple,
-        signOut,
-        updateUser,
-        resendConfirmationEmail,
-        loadUserProfile,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
