@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
@@ -28,7 +28,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const isLoadingProfileRef = useRef(false);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     console.log('AuthContext: Initializing auth state');
@@ -68,18 +69,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
       subscription2.remove();
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
     };
   }, []);
 
   const loadUserProfile = async (session: Session, retryCount = 0) => {
     // Prevent multiple simultaneous profile loads
-    if (isLoadingProfile) {
+    if (isLoadingProfileRef.current) {
       console.log('AuthContext: Profile load already in progress, skipping');
       return;
     }
 
     try {
-      setIsLoadingProfile(true);
+      isLoadingProfileRef.current = true;
       console.log('AuthContext: Loading user profile for:', session.user.id, `(attempt ${retryCount + 1})`);
       
       const { data, error } = await supabase
@@ -95,8 +99,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // we'll wait a bit and try again (max 10 retries over 20 seconds)
         if (error.code === 'PGRST116' && retryCount < 10) {
           console.log(`AuthContext: User profile not found, retry ${retryCount + 1}/10 in 2 seconds`);
-          setTimeout(() => {
-            setIsLoadingProfile(false);
+          retryTimeoutRef.current = setTimeout(() => {
+            isLoadingProfileRef.current = false;
             loadUserProfile(session, retryCount + 1);
           }, 2000);
           return;
@@ -120,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (insertError) {
               console.error('AuthContext: Failed to create profile manually:', insertError);
               setIsLoading(false);
-              setIsLoadingProfile(false);
+              isLoadingProfileRef.current = false;
               return;
             }
 
@@ -138,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 updatedAt: newProfile.updated_at,
               });
               setIsLoading(false);
-              setIsLoadingProfile(false);
+              isLoadingProfileRef.current = false;
               return;
             }
           } catch (fallbackError) {
@@ -149,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // If it's a different error, just continue
         console.error('AuthContext: Could not load profile');
         setIsLoading(false);
-        setIsLoadingProfile(false);
+        isLoadingProfileRef.current = false;
         return;
       }
 
@@ -173,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // The user can still use the app, they just won't have their profile loaded
     } finally {
       setIsLoading(false);
-      setIsLoadingProfile(false);
+      isLoadingProfileRef.current = false;
     }
   };
 

@@ -1,23 +1,37 @@
 
-import React from 'react';
-import { Stack, Redirect } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    const inTabsGroup = segments[0] === '(tabs)';
+
+    if (!isAuthenticated && inTabsGroup) {
+      console.log('TabLayout: Redirecting to auth (not authenticated)');
+      router.replace('/(auth)');
+      return;
+    }
+
+    // Redirect to onboarding if user doesn't have a household
+    if (isAuthenticated && user && !user.householdId && inTabsGroup) {
+      console.log('TabLayout: Redirecting to onboarding (no household)');
+      router.replace('/(auth)/onboarding');
+      return;
+    }
+  }, [isAuthenticated, isLoading, user?.householdId, segments]);
 
   if (isLoading) {
     return null;
-  }
-
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)" />;
-  }
-
-  // Redirect to onboarding if user doesn't have a household
-  if (user && !user.householdId) {
-    return <Redirect href="/(auth)/onboarding" />;
   }
 
   const tabs: TabBarItem[] = [
