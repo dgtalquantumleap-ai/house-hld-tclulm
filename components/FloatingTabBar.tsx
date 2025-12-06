@@ -24,21 +24,22 @@ export default function FloatingTabBar({ tabs }: FloatingTabBarProps) {
     return pathname.startsWith(route);
   };
 
-  const getIconName = (icon: string, active: boolean) => {
+  const getIconNames = (icon: string, active: boolean) => {
     const iconMap: { [key: string]: { ios: string; iosFilled: string; android: string } } = {
       'home': { ios: 'house', iosFilled: 'house.fill', android: 'home' },
       'check-circle': { ios: 'checkmark.circle', iosFilled: 'checkmark.circle.fill', android: 'check_circle' },
       'calendar': { ios: 'calendar', iosFilled: 'calendar.circle.fill', android: 'calendar_today' },
       'shopping-cart': { ios: 'cart', iosFilled: 'cart.fill', android: 'shopping_cart' },
+      'attach-money': { ios: 'dollarsign.circle', iosFilled: 'dollarsign.circle.fill', android: 'attach_money' },
       'person': { ios: 'person', iosFilled: 'person.fill', android: 'person' },
     };
 
     const iconData = iconMap[icon] || { ios: 'circle', iosFilled: 'circle.fill', android: 'circle' };
     
-    if (Platform.OS === 'ios') {
-      return active ? iconData.iosFilled : iconData.ios;
-    }
-    return iconData.android;
+    return {
+      ios: active ? iconData.iosFilled : iconData.ios,
+      android: iconData.android,
+    };
   };
 
   return (
@@ -46,6 +47,7 @@ export default function FloatingTabBar({ tabs }: FloatingTabBarProps) {
       <View style={styles.tabBar}>
         {tabs.map((tab) => {
           const active = isActive(tab.route);
+          const iconNames = getIconNames(tab.icon, active);
           return (
             <TouchableOpacity
               key={tab.name}
@@ -53,8 +55,8 @@ export default function FloatingTabBar({ tabs }: FloatingTabBarProps) {
               onPress={() => router.push(tab.route as any)}
             >
               <IconSymbol
-                ios_icon_name={getIconName(tab.icon, active)}
-                android_material_icon_name={getIconName(tab.icon, active)}
+                ios_icon_name={iconNames.ios}
+                android_material_icon_name={iconNames.android}
                 size={24}
                 color={active ? colors.primary : colors.text}
               />

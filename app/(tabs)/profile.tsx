@@ -55,9 +55,13 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('Profile: Signing out...');
               await signOut();
-              router.replace('/(auth)');
+              console.log('Profile: Sign out successful, navigating to auth');
+              // The auth state change will automatically trigger navigation
+              // via the layout components, so we don't need to manually navigate
             } catch (error: any) {
+              console.error('Profile: Sign out error:', error);
               Alert.alert('Error', error.message || 'Failed to sign out');
             }
           },
@@ -99,12 +103,8 @@ export default function ProfileScreen() {
           onPress: async () => {
             try {
               await updateUser({ householdId: null });
-              Alert.alert('Success', 'You have left the household', [
-                {
-                  text: 'OK',
-                  onPress: () => router.replace('/(auth)/onboarding'),
-                },
-              ]);
+              Alert.alert('Success', 'You have left the household');
+              // The auth layout will automatically redirect to onboarding
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to leave household');
             }

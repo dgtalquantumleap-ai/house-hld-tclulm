@@ -332,14 +332,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       console.log('AuthContext: Signing out user');
+      
+      // Clear user state first to prevent any race conditions
+      setUser(null);
+      
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
+      
       if (error) {
         console.error('AuthContext: Sign out error:', error);
         throw error;
       }
-      setUser(null);
+      
+      console.log('AuthContext: Sign out successful');
     } catch (error) {
       console.error('AuthContext: Sign out exception:', error);
+      // Even if there's an error, we've already cleared the user state
+      // This ensures the UI updates correctly
       throw error;
     }
   };
