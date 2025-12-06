@@ -42,12 +42,27 @@ export default function SignupScreen() {
 
     setIsLoading(true);
     try {
-      await signUp(email, password, name);
-      console.log('Signup successful, navigating to onboarding');
-      router.replace('/(auth)/onboarding');
-    } catch (error) {
-      console.error('Signup error:', error);
-      Alert.alert('Error', 'Failed to create account. Please try again.');
+      const result = await signUp(email, password, name, 'Adult');
+      
+      if (result.error) {
+        console.error('Signup error:', result.error);
+        Alert.alert('Signup Failed', result.error);
+      } else {
+        console.log('Signup successful');
+        Alert.alert(
+          'Email Verification Required',
+          'Please check your email and click the verification link to activate your account. You can then sign in.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/(auth)/login'),
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
+      console.error('Signup exception:', error);
+      Alert.alert('Error', error.message || 'Failed to create account. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -77,6 +92,7 @@ export default function SignupScreen() {
             onChangeText={setName}
             autoCapitalize="words"
             autoComplete="name"
+            editable={!isLoading}
           />
 
           <TextInput
@@ -88,16 +104,18 @@ export default function SignupScreen() {
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
+            editable={!isLoading}
           />
 
           <TextInput
             style={commonStyles.input}
-            placeholder="Password"
+            placeholder="Password (min 6 characters)"
             placeholderTextColor={colors.textSecondary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoComplete="password-new"
+            editable={!isLoading}
           />
 
           <TextInput
@@ -108,10 +126,11 @@ export default function SignupScreen() {
             onChangeText={setConfirmPassword}
             secureTextEntry
             autoComplete="password-new"
+            editable={!isLoading}
           />
 
           <TouchableOpacity
-            style={[buttonStyles.primary, styles.button]}
+            style={[buttonStyles.primary, styles.button, isLoading && styles.buttonDisabled]}
             onPress={handleSignup}
             disabled={isLoading}
           >
@@ -123,6 +142,7 @@ export default function SignupScreen() {
           <TouchableOpacity
             style={styles.linkButton}
             onPress={() => router.push('/(auth)/login')}
+            disabled={isLoading}
           >
             <Text style={styles.linkText}>
               Already have an account? <Text style={styles.linkTextBold}>Sign In</Text>
@@ -168,6 +188,9 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   linkButton: {
     marginTop: 24,

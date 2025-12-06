@@ -30,12 +30,18 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      await signIn(email, password);
-      console.log('Login successful, navigating to home');
-      router.replace('/(tabs)/(home)');
-    } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Error', 'Failed to sign in. Please check your credentials.');
+      const result = await signIn(email, password);
+      
+      if (result.error) {
+        console.error('Login error:', result.error);
+        Alert.alert('Login Failed', result.error);
+      } else {
+        console.log('Login successful, navigating to home');
+        router.replace('/(tabs)/(home)');
+      }
+    } catch (error: any) {
+      console.error('Login exception:', error);
+      Alert.alert('Error', error.message || 'Failed to sign in. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +72,7 @@ export default function LoginScreen() {
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
+            editable={!isLoading}
           />
 
           <TextInput
@@ -76,10 +83,11 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             secureTextEntry
             autoComplete="password"
+            editable={!isLoading}
           />
 
           <TouchableOpacity
-            style={[buttonStyles.primary, styles.button]}
+            style={[buttonStyles.primary, styles.button, isLoading && styles.buttonDisabled]}
             onPress={handleLogin}
             disabled={isLoading}
           >
@@ -91,6 +99,7 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={styles.linkButton}
             onPress={() => router.push('/(auth)/signup')}
+            disabled={isLoading}
           >
             <Text style={styles.linkText}>
               Don&apos;t have an account? <Text style={styles.linkTextBold}>Sign Up</Text>
@@ -136,6 +145,9 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   linkButton: {
     marginTop: 24,
