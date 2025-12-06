@@ -129,14 +129,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string, role: string): Promise<{ error?: string }> => {
     try {
-      console.log('AuthContext: Signing up user:', email);
+      console.log('AuthContext: Signing up user:', email, 'with name:', name, 'and role:', role);
       
-      // Sign up with Supabase Auth
+      // Sign up with Supabase Auth and pass user metadata
+      // The database trigger will automatically create the user profile
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: 'https://natively.dev/email-confirmed',
+          data: {
+            name: name,
+            role: role,
+          },
         },
       });
 
@@ -149,26 +154,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: 'Failed to create user account' };
       }
 
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert([{
-          id: authData.user.id,
-          name,
-          email,
-          role,
-        }]);
-
-      if (profileError) {
-        console.error('AuthContext: Profile creation error:', profileError.message);
-        return { error: 'Account created but profile setup failed' };
-      }
-
-      console.log('AuthContext: User signed up successfully');
+      console.log('AuthContext: User signed up successfully, profile created by trigger');
       
       // Check if email confirmation is required
       if (authData.session) {
+        // User is automatically signed in (email confirmation disabled)
         await loadUserProfile(authData.session);
+      } else {
+        // Email confirmation required - profile was still created by trigger
+        console.log('AuthContext: Email confirmation required');
       }
 
       return {};

@@ -42,16 +42,17 @@ export default function SignupScreen() {
 
     setIsLoading(true);
     try {
+      console.log('Signup: Starting signup process for:', email);
       const result = await signUp(email, password, name, 'Adult');
       
       if (result.error) {
         console.error('Signup error:', result.error);
         Alert.alert('Signup Failed', result.error);
       } else {
-        console.log('Signup successful');
+        console.log('Signup successful - account and profile created');
         Alert.alert(
-          'Email Verification Required',
-          'Please check your email and click the verification link to activate your account. You can then sign in.',
+          'Account Created! 🎉',
+          'Please check your email and click the verification link to activate your account. Once verified, you can sign in and start using HouseHLD.',
           [
             {
               text: 'OK',
