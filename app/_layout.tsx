@@ -15,6 +15,7 @@ import {
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -64,7 +65,7 @@ export default function RootLayout() {
   };
 
   return (
-    <>
+    <ErrorBoundary>
       <StatusBar style="auto" animated />
       <ThemeProvider
         value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
@@ -79,6 +80,6 @@ export default function RootLayout() {
           </GestureHandlerRootView>
         </AuthProvider>
       </ThemeProvider>
-    </>
+    </ErrorBoundary>
   );
 }

@@ -1,14 +1,16 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export function useTasks() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     if (user?.householdId) {
@@ -17,6 +19,15 @@ export function useTasks() {
     } else {
       setIsLoading(false);
     }
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (channelRef.current) {
+        console.log('useTasks: Unsubscribing from real-time updates');
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [user?.householdId]);
 
   const loadTasks = async () => {
@@ -24,7 +35,7 @@ export function useTasks() {
       console.log('useTasks: Loading tasks for household:', user?.householdId);
       const { data, error } = await supabase
         .from('tasks')
-        .select('*')
+        .select('id, household_id, title, description, assigned_to_user_id, frequency, due_date, status, created_by_user_id, completed_at, created_at, updated_at')
         .eq('household_id', user?.householdId)
         .order('due_date', { ascending: true });
 
@@ -55,9 +66,15 @@ export function useTasks() {
   };
 
   const subscribeToTasks = () => {
+    // Prevent duplicate subscriptions
+    if (channelRef.current) {
+      console.log('useTasks: Already subscribed to real-time updates');
+      return;
+    }
+
     console.log('useTasks: Subscribing to real-time task updates');
-    const subscription = supabase
-      .channel('tasks_changes')
+    const channel = supabase
+      .channel(`tasks_changes_${user?.householdId}`)
       .on(
         'postgres_changes',
         {
@@ -67,15 +84,15 @@ export function useTasks() {
           filter: `household_id=eq.${user?.householdId}`,
         },
         (payload) => {
-          console.log('useTasks: Real-time update received:', payload);
+          console.log('useTasks: Real-time update received:', payload.eventType);
           loadTasks();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('useTasks: Subscription status:', status);
+      });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    channelRef.current = channel;
   };
 
   const createTask = async (taskData: Partial<Task>) => {
@@ -117,7 +134,13 @@ export function useTasks() {
       if (updates.assignedToUserId !== undefined) dbUpdates.assigned_to_user_id = updates.assignedToUserId;
       if (updates.frequency !== undefined) dbUpdates.frequency = updates.frequency;
       if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
-      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.status !== undefined) {
+        dbUpdates.status = updates.status;
+        // Set completed_at when marking as completed
+        if (updates.status === 'completed') {
+          dbUpdates.completed_at = new Date().toISOString();
+        }
+      }
 
       const { data, error } = await supabase
         .from('tasks')

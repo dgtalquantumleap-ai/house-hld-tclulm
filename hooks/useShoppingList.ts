@@ -1,14 +1,16 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ShoppingItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export function useShoppingList() {
   const { user } = useAuth();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     if (user?.householdId) {
@@ -17,6 +19,15 @@ export function useShoppingList() {
     } else {
       setIsLoading(false);
     }
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (channelRef.current) {
+        console.log('useShoppingList: Unsubscribing from real-time updates');
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [user?.householdId]);
 
   const loadItems = async () => {
@@ -24,7 +35,7 @@ export function useShoppingList() {
       console.log('useShoppingList: Loading items for household:', user?.householdId);
       const { data, error } = await supabase
         .from('shopping_items')
-        .select('*')
+        .select('id, household_id, name, quantity, category, added_by_user_id, purchased, purchased_by_user_id, purchased_at, created_at, updated_at')
         .eq('household_id', user?.householdId)
         .order('purchased', { ascending: true })
         .order('created_at', { ascending: false });
@@ -54,9 +65,15 @@ export function useShoppingList() {
   };
 
   const subscribeToItems = () => {
+    // Prevent duplicate subscriptions
+    if (channelRef.current) {
+      console.log('useShoppingList: Already subscribed to real-time updates');
+      return;
+    }
+
     console.log('useShoppingList: Subscribing to real-time updates');
-    const subscription = supabase
-      .channel('shopping_items_changes')
+    const channel = supabase
+      .channel(`shopping_items_changes_${user?.householdId}`)
       .on(
         'postgres_changes',
         {
@@ -66,15 +83,15 @@ export function useShoppingList() {
           filter: `household_id=eq.${user?.householdId}`,
         },
         (payload) => {
-          console.log('useShoppingList: Real-time update received:', payload);
+          console.log('useShoppingList: Real-time update received:', payload.eventType);
           loadItems();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('useShoppingList: Subscription status:', status);
+      });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    channelRef.current = channel;
   };
 
   const addItem = async (name: string, quantity?: string, category?: string) => {

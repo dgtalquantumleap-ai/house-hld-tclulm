@@ -1,14 +1,16 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { HouseholdEvent } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export function useEvents() {
   const { user } = useAuth();
   const [events, setEvents] = useState<HouseholdEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     if (user?.householdId) {
@@ -17,6 +19,15 @@ export function useEvents() {
     } else {
       setIsLoading(false);
     }
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (channelRef.current) {
+        console.log('useEvents: Unsubscribing from real-time updates');
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [user?.householdId]);
 
   const loadEvents = async () => {
@@ -24,7 +35,7 @@ export function useEvents() {
       console.log('useEvents: Loading events for household:', user?.householdId);
       const { data, error } = await supabase
         .from('household_events')
-        .select('*')
+        .select('id, household_id, title, date, time, description, created_by_user_id, assigned_to_user_id, repeat, created_at, updated_at')
         .eq('household_id', user?.householdId)
         .order('date', { ascending: true });
 
@@ -55,9 +66,15 @@ export function useEvents() {
   };
 
   const subscribeToEvents = () => {
+    // Prevent duplicate subscriptions
+    if (channelRef.current) {
+      console.log('useEvents: Already subscribed to real-time updates');
+      return;
+    }
+
     console.log('useEvents: Subscribing to real-time event updates');
-    const subscription = supabase
-      .channel('household_events_changes')
+    const channel = supabase
+      .channel(`household_events_changes_${user?.householdId}`)
       .on(
         'postgres_changes',
         {
@@ -67,15 +84,15 @@ export function useEvents() {
           filter: `household_id=eq.${user?.householdId}`,
         },
         (payload) => {
-          console.log('useEvents: Real-time update received:', payload);
+          console.log('useEvents: Real-time update received:', payload.eventType);
           loadEvents();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('useEvents: Subscription status:', status);
+      });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    channelRef.current = channel;
   };
 
   const createEvent = async (eventData: Partial<HouseholdEvent>) => {
