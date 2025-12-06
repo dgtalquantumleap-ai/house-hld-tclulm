@@ -27,6 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   useEffect(() => {
     console.log('AuthContext: Initializing auth state');
@@ -70,8 +71,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadUserProfile = async (session: Session) => {
+    // Prevent multiple simultaneous profile loads
+    if (isLoadingProfile) {
+      console.log('AuthContext: Profile load already in progress, skipping');
+      return;
+    }
+
     try {
+      setIsLoadingProfile(true);
       console.log('AuthContext: Loading user profile for:', session.user.id);
+      
       const { data, error } = await supabase
         .from('users')
         .select('id, name, email, phone, photo_url, role, household_id, created_at, updated_at')
@@ -80,6 +89,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('AuthContext: Error loading user profile:', error);
+        
+        // If the user profile doesn't exist yet (e.g., during signup before trigger completes),
+        // we'll wait a bit and try again
+        if (error.code === 'PGRST116') {
+          console.log('AuthContext: User profile not found, will retry in 2 seconds');
+          setTimeout(() => {
+            setIsLoadingProfile(false);
+            loadUserProfile(session);
+          }, 2000);
+          return;
+        }
+        
         throw error;
       }
 
@@ -99,8 +120,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('AuthContext: Error in loadUserProfile:', error);
+      // Don't throw - just log the error and continue
+      // The user can still use the app, they just won't have their profile loaded
     } finally {
       setIsLoading(false);
+      setIsLoadingProfile(false);
     }
   };
 
