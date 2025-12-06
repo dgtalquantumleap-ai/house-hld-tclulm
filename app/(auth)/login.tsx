@@ -18,10 +18,12 @@ import { IconSymbol } from '@/components/IconSymbol';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, signInWithGoogle, signInWithApple } = useAuth();
+  const { signIn, signInWithGoogle, signInWithApple, resendConfirmationEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showResendButton, setShowResendButton] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -30,14 +32,39 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
+    setShowResendButton(false);
     try {
       const result = await signIn(email, password);
       
       if (result.error) {
         console.error('Login error:', result.error);
-        Alert.alert('Login Failed', result.error);
+        
+        // Check if the error is related to email confirmation
+        const errorMessage = result.error.toLowerCase();
+        if (errorMessage.includes('email not confirmed') || 
+            errorMessage.includes('email confirmation') ||
+            errorMessage.includes('verify your email')) {
+          setShowResendButton(true);
+          Alert.alert(
+            'Email Not Confirmed',
+            'Please verify your email address before signing in. Check your inbox for the confirmation link.\n\nDidn\'t receive the email?',
+            [
+              {
+                text: 'Resend Email',
+                onPress: handleResendConfirmation,
+              },
+              {
+                text: 'OK',
+                style: 'cancel',
+              },
+            ]
+          );
+        } else {
+          Alert.alert('Login Failed', result.error);
+        }
       } else {
         console.log('Login successful, navigating to home');
+        setShowResendButton(false);
         router.replace('/(tabs)/(home)');
       }
     } catch (error: any) {
@@ -45,6 +72,33 @@ export default function LoginScreen() {
       Alert.alert('Error', error.message || 'Failed to sign in. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    setIsResending(true);
+    try {
+      const result = await resendConfirmationEmail(email);
+      
+      if (result.error) {
+        Alert.alert('Error', result.error);
+      } else {
+        Alert.alert(
+          'Email Sent! ✉️',
+          'A new confirmation email has been sent to your inbox. Please check your email and click the verification link.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error: any) {
+      console.error('Resend confirmation error:', error);
+      Alert.alert('Error', error.message || 'Failed to resend confirmation email');
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -114,6 +168,24 @@ export default function LoginScreen() {
             autoComplete="password"
             editable={!isLoading}
           />
+
+          {showResendButton && (
+            <TouchableOpacity
+              style={styles.resendButton}
+              onPress={handleResendConfirmation}
+              disabled={isResending}
+            >
+              <IconSymbol
+                ios_icon_name="envelope.fill"
+                android_material_icon_name="email"
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={styles.resendButtonText}>
+                {isResending ? 'Sending...' : 'Resend Confirmation Email'}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[buttonStyles.primary, styles.button, isLoading && styles.buttonDisabled]}
@@ -215,6 +287,25 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  resendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  resendButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: 8,
   },
   divider: {
     flexDirection: 'row',

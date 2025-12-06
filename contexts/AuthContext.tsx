@@ -19,6 +19,7 @@ interface AuthContextType {
   signInWithApple: () => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
+  resendConfirmationEmail: (email: string) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -313,6 +314,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resendConfirmationEmail = async (email: string): Promise<{ error?: string }> => {
+    try {
+      console.log('AuthContext: Resending confirmation email to:', email);
+      
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: 'https://natively.dev/email-confirmed',
+        },
+      });
+
+      if (error) {
+        console.error('AuthContext: Resend confirmation error:', error.message);
+        return { error: error.message };
+      }
+
+      console.log('AuthContext: Confirmation email resent successfully');
+      return {};
+    } catch (error: any) {
+      console.error('AuthContext: Resend confirmation exception:', error);
+      return { error: error.message || 'Failed to resend confirmation email' };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -325,6 +351,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithApple,
         signOut,
         updateUser,
+        resendConfirmationEmail,
       }}
     >
       {children}
