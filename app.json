@@ -1,7 +1,8 @@
+
 {
   "expo": {
-    "name": "House HLD",
-    "slug": "House HLD",
+    "name": "HouseHLD",
+    "slug": "househld",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/natively-dark.png",
@@ -10,22 +11,31 @@
     "splash": {
       "image": "./assets/images/natively-dark.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#6366F1"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.Natively",
+      "bundleIdentifier": "com.househld.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "HouseHLD needs access to your camera to take photos for your profile.",
+        "NSPhotoLibraryUsageDescription": "HouseHLD needs access to your photo library to select photos for your profile."
+      },
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/natively-dark.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#6366F1"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively"
+      "package": "com.househld.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
@@ -36,13 +46,19 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "natively",
+    "scheme": "househld",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {}
-    }
-  },
-  "scheme": "House HLD"
+      "router": {},
+      "eas": {
+        "projectId": "househld-production"
+      }
+    },
+    "owner": "househld",
+    "privacy": "public",
+    "description": "A household management app for families and roommates. Manage tasks, shopping lists, events, and expenses together.",
+    "githubUrl": "https://github.com/househld/app"
+  }
 }
