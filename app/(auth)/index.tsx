@@ -1,66 +1,148 @@
 
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '@/contexts/AuthContext';
+import { colors, buttonStyles } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
+
+const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  useEffect(() => {
+    console.log('WelcomeScreen: Auth state:', { isAuthenticated, isLoading, hasUser: !!user, householdId: user?.householdId });
+    
+    if (!isLoading && isAuthenticated && user) {
+      console.log('WelcomeScreen: User is authenticated, checking household status');
+      
+      // If user has a household, go to home
+      if (user.householdId) {
+        console.log('WelcomeScreen: User has household, redirecting to home');
+        router.replace('/(tabs)/(home)');
+      } else {
+        // If user doesn't have a household, go to onboarding
+        console.log('WelcomeScreen: User has no household, redirecting to onboarding');
+        router.replace('/(auth)/onboarding');
+      }
+    }
+  }, [isAuthenticated, isLoading, user, user?.householdId]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[colors.primary, colors.accent]}
-        style={styles.gradient}
-      >
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.logo}>🏠</Text>
-            <Text style={styles.title}>HouseHLD</Text>
-            <Text style={styles.subtitle}>
-              Manage your household together
-            </Text>
+      <View style={styles.content}>
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <View style={styles.iconContainer}>
+            <IconSymbol
+              ios_icon_name="house.fill"
+              android_material_icon_name="home"
+              size={80}
+              color={colors.primary}
+            />
           </View>
+          <Text style={styles.appName}>HouseHLD</Text>
+          <Text style={styles.tagline}>Managing family life, effortlessly</Text>
+        </View>
 
-          <View style={styles.features}>
-            <View style={styles.feature}>
-              <Text style={styles.featureIcon}>✓</Text>
-              <Text style={styles.featureText}>Shared Tasks & Chores</Text>
-            </View>
-            <View style={styles.feature}>
-              <Text style={styles.featureIcon}>✓</Text>
-              <Text style={styles.featureText}>Shopping Lists</Text>
-            </View>
-            <View style={styles.feature}>
-              <Text style={styles.featureIcon}>✓</Text>
-              <Text style={styles.featureText}>Family Calendar</Text>
-            </View>
-            <View style={styles.feature}>
-              <Text style={styles.featureIcon}>✓</Text>
-              <Text style={styles.featureText}>Expense Tracking</Text>
-            </View>
+        {/* Marketing Hook */}
+        <View style={styles.hookSection}>
+          <Text style={styles.hookText}>
+            Create your household, coordinate calendars, plan meals, share tasks, and make decisions together — all in one place.
+          </Text>
+        </View>
+
+        {/* Features Grid */}
+        <View style={styles.featuresGrid}>
+          <View style={styles.featureItem}>
+            <IconSymbol
+              ios_icon_name="calendar.circle.fill"
+              android_material_icon_name="event"
+              size={32}
+              color={colors.accent}
+            />
+            <Text style={styles.featureText}>Shared Calendar</Text>
           </View>
-
-          <View style={styles.buttons}>
-            <TouchableOpacity
-              style={[buttonStyles.primary, styles.button]}
-              onPress={() => router.push('/(auth)/signup')}
-            >
-              <Text style={buttonStyles.text}>Get Started</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[buttonStyles.outline, styles.button, styles.outlineButton]}
-              onPress={() => router.push('/(auth)/login')}
-            >
-              <Text style={[buttonStyles.outlineText, styles.outlineButtonText]}>
-                Sign In
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.featureItem}>
+            <IconSymbol
+              ios_icon_name="checkmark.circle.fill"
+              android_material_icon_name="check-circle"
+              size={32}
+              color={colors.primary}
+            />
+            <Text style={styles.featureText}>Task Management</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <IconSymbol
+              ios_icon_name="cart.fill"
+              android_material_icon_name="shopping-cart"
+              size={32}
+              color={colors.secondary}
+            />
+            <Text style={styles.featureText}>Shopping Lists</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <IconSymbol
+              ios_icon_name="fork.knife"
+              android_material_icon_name="restaurant"
+              size={32}
+              color={colors.accent}
+            />
+            <Text style={styles.featureText}>Meal Planner</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <IconSymbol
+              ios_icon_name="chart.bar.fill"
+              android_material_icon_name="poll"
+              size={32}
+              color={colors.primary}
+            />
+            <Text style={styles.featureText}>Family Polls</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <IconSymbol
+              ios_icon_name="bell.fill"
+              android_material_icon_name="notifications"
+              size={32}
+              color={colors.secondary}
+            />
+            <Text style={styles.featureText}>Real-time Sync</Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.actionSection}>
+        <TouchableOpacity
+          style={[buttonStyles.primary, styles.button]}
+          onPress={() => router.push('/(auth)/signup')}
+        >
+          <Text style={buttonStyles.text}>Get Started</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[buttonStyles.outline, styles.button]}
+          onPress={() => router.push('/(auth)/login')}
+        >
+          <Text style={buttonStyles.outlineText}>Sign In</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.footerText}>
+          Join thousands of families managing their homes better
+        </Text>
+      </View>
     </View>
   );
 }
@@ -68,67 +150,94 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
-  gradient: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: colors.textSecondary,
   },
   content: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 80,
-    paddingBottom: 40,
-    justifyContent: 'space-between',
   },
-  header: {
+  heroSection: {
     alignItems: 'center',
+    marginBottom: 40,
   },
-  logo: {
-    fontSize: 80,
-    marginBottom: 16,
+  iconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: `${colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  title: {
+  appName: {
     fontSize: 48,
-    fontWeight: '800',
-    color: colors.card,
+    fontWeight: '900',
+    color: colors.text,
     marginBottom: 8,
+    letterSpacing: -1,
   },
-  subtitle: {
+  tagline: {
     fontSize: 18,
-    color: colors.card,
-    opacity: 0.9,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
-  features: {
+  hookSection: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 32,
+    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.08)',
+    elevation: 3,
+  },
+  hookText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 16,
   },
-  feature: {
-    flexDirection: 'row',
+  featureItem: {
+    width: (width - 72) / 3,
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     padding: 16,
-    borderRadius: 12,
-  },
-  featureIcon: {
-    fontSize: 24,
-    marginRight: 12,
-    color: colors.card,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)',
+    elevation: 2,
   },
   featureText: {
-    fontSize: 18,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.card,
+    color: colors.text,
+    marginTop: 8,
+    textAlign: 'center',
   },
-  buttons: {
-    gap: 12,
+  actionSection: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
   button: {
-    width: '100%',
+    marginBottom: 16,
   },
-  outlineButton: {
-    backgroundColor: colors.card,
-    borderColor: colors.card,
-  },
-  outlineButtonText: {
-    color: colors.primary,
+  footerText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

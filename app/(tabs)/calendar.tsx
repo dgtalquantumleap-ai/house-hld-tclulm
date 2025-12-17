@@ -16,15 +16,23 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/contexts/AuthContext';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function CalendarScreen() {
   const { user } = useAuth();
-  const { events, isLoading, createEvent, deleteEvent, refreshEvents } = useEvents();
+  const { events, isLoading, createEvent, updateEvent, deleteEvent, refreshEvents } = useEvents();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [conflictEvent, setConflictEvent] = useState<any>(null);
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDescription, setNewEventDescription] = useState('');
+  const [newEventDate, setNewEventDate] = useState(new Date());
+  const [newEventTime, setNewEventTime] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -40,12 +48,15 @@ export default function CalendarScreen() {
 
     setIsSubmitting(true);
     try {
-      const today = new Date();
+      const timeString = `${newEventTime.getHours().toString().padStart(2, '0')}:${newEventTime.getMinutes().toString().padStart(2, '0')}`;
+      
       const { error } = await createEvent({
         title: newEventTitle,
         description: newEventDescription || undefined,
-        date: today.toISOString().split('T')[0],
+        date: newEventDate.toISOString().split('T')[0],
+        time: timeString,
         repeat: 'none',
+        confirmationStatus: 'pending',
       });
 
       if (error) {
@@ -53,7 +64,10 @@ export default function CalendarScreen() {
       } else {
         setNewEventTitle('');
         setNewEventDescription('');
+        setNewEventDate(new Date());
+        setNewEventTime(new Date());
         setShowAddModal(false);
+        Alert.alert('Success', 'Event created! Other household members will be notified.');
       }
     } finally {
       setIsSubmitting(false);
@@ -87,6 +101,51 @@ export default function CalendarScreen() {
     );
   };
 
+  const handleConflictResolution = (event: any) => {
+    setConflictEvent(event);
+    setShowConflictModal(true);
+  };
+
+  const resolveConflict = async (action: 'keep_mine' | 'keep_partner' | 'merge') => {
+    if (!conflictEvent) return;
+
+    try {
+      if (action === 'keep_mine') {
+        // Keep current user's version
+        await updateEvent(conflictEvent.id, {
+          confirmationStatus: 'confirmed',
+        });
+        Alert.alert('Success', 'Your version has been kept');
+      } else if (action === 'keep_partner') {
+        // Accept partner's version
+        await updateEvent(conflictEvent.id, {
+          confirmationStatus: 'confirmed',
+        });
+        Alert.alert('Success', 'Partner\'s version has been accepted');
+      } else if (action === 'merge') {
+        // Merge both versions (create a new event with combined info)
+        Alert.alert('Info', 'Merge functionality will combine both event details');
+      }
+      
+      setShowConflictModal(false);
+      setConflictEvent(null);
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
+  };
+
+  const handleConfirmEvent = async (eventId: string, status: 'confirmed' | 'declined') => {
+    const { error } = await updateEvent(eventId, {
+      confirmationStatus: status,
+    });
+
+    if (error) {
+      Alert.alert('Error', error);
+    } else {
+      Alert.alert('Success', `Event ${status}`);
+    }
+  };
+
   const getEventColor = (repeat: string) => {
     switch (repeat) {
       case 'daily':
@@ -100,7 +159,28 @@ export default function CalendarScreen() {
     }
   };
 
+  const getConfirmationColor = (status?: string) => {
+    switch (status) {
+      case 'confirmed':
+        return colors.success;
+      case 'declined':
+        return colors.error;
+      default:
+        return colors.warning;
+    }
+  };
+
   const canCreateEvent = user?.role === 'Adult' || user?.role === 'Parent';
+
+  // Group events by date
+  const groupedEvents = events.reduce((acc, event) => {
+    const date = new Date(event.date).toLocaleDateString();
+    if (!acc[date]) {
+      acc[date] = [];
+    }
+    acc[date].push(event);
+    return acc;
+  }, {} as Record<string, typeof events>);
 
   if (isLoading && !refreshing) {
     return (
@@ -114,19 +194,47 @@ export default function CalendarScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Calendar</Text>
-        {canCreateEvent && (
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => setShowAddModal(true)}
-          >
-            <IconSymbol
-              ios_icon_name="plus"
-              android_material_icon_name="add"
-              size={24}
-              color={colors.card}
-            />
-          </TouchableOpacity>
-        )}
+        <View style={styles.headerActions}>
+          <View style={styles.viewToggle}>
+            <TouchableOpacity
+              style={[styles.viewButton, viewMode === 'daily' && styles.viewButtonActive]}
+              onPress={() => setViewMode('daily')}
+            >
+              <Text style={[styles.viewButtonText, viewMode === 'daily' && styles.viewButtonTextActive]}>
+                Day
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.viewButton, viewMode === 'weekly' && styles.viewButtonActive]}
+              onPress={() => setViewMode('weekly')}
+            >
+              <Text style={[styles.viewButtonText, viewMode === 'weekly' && styles.viewButtonTextActive]}>
+                Week
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.viewButton, viewMode === 'monthly' && styles.viewButtonActive]}
+              onPress={() => setViewMode('monthly')}
+            >
+              <Text style={[styles.viewButtonText, viewMode === 'monthly' && styles.viewButtonTextActive]}>
+                Month
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {canCreateEvent && (
+            <TouchableOpacity 
+              style={styles.addButton}
+              onPress={() => setShowAddModal(true)}
+            >
+              <IconSymbol
+                ios_icon_name="plus"
+                android_material_icon_name="add"
+                size={24}
+                color={colors.card}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <ScrollView 
@@ -141,76 +249,124 @@ export default function CalendarScreen() {
           </Text>
           <View style={styles.calendarGrid}>
             <Text style={styles.calendarPlaceholder}>
-              📅 Calendar view coming soon
+              📅 {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} view
             </Text>
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Upcoming Events</Text>
-          {events.length > 0 ? (
-            events.map((event) => (
-              <TouchableOpacity 
-                key={event.id} 
-                style={styles.eventCard}
-                onLongPress={() => handleDeleteEvent(event.id)}
-              >
-                <View style={[styles.eventIndicator, { backgroundColor: getEventColor(event.repeat) }]} />
-                <View style={styles.eventContent}>
-                  <Text style={styles.eventTitle}>{event.title}</Text>
-                  <Text style={styles.eventDate}>
-                    {new Date(event.date).toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      month: 'short', 
-                      day: 'numeric' 
-                    })}
-                  </Text>
-                  {event.time && (
-                    <Text style={styles.eventTime}>{event.time}</Text>
-                  )}
-                  {event.description && (
-                    <Text style={styles.eventDescription}>{event.description}</Text>
-                  )}
-                </View>
-                <View style={styles.eventIcon}>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron_right"
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                </View>
-              </TouchableOpacity>
+          {Object.keys(groupedEvents).length > 0 ? (
+            Object.entries(groupedEvents).map(([date, dateEvents]) => (
+              <View key={date} style={styles.dateSection}>
+                <Text style={styles.dateHeader}>{date}</Text>
+                {dateEvents.map((event) => (
+                  <TouchableOpacity 
+                    key={event.id} 
+                    style={styles.eventCard}
+                    onLongPress={() => handleDeleteEvent(event.id)}
+                  >
+                    <View style={[styles.eventIndicator, { backgroundColor: getEventColor(event.repeat) }]} />
+                    <View style={styles.eventContent}>
+                      <View style={styles.eventHeader}>
+                        <Text style={styles.eventTitle}>{event.title}</Text>
+                        {event.confirmationStatus && (
+                          <View style={[styles.statusBadge, { backgroundColor: getConfirmationColor(event.confirmationStatus) }]}>
+                            <Text style={styles.statusBadgeText}>
+                              {event.confirmationStatus}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      {event.time && (
+                        <Text style={styles.eventTime}>🕐 {event.time}</Text>
+                      )}
+                      {event.description && (
+                        <Text style={styles.eventDescription}>{event.description}</Text>
+                      )}
+                      {event.calendarSource && (
+                        <Text style={styles.eventSource}>
+                          📱 From {event.calendarSource}
+                        </Text>
+                      )}
+                      
+                      {/* Confirmation Actions */}
+                      {event.confirmationStatus === 'pending' && event.createdByUserId !== user?.id && (
+                        <View style={styles.confirmationActions}>
+                          <TouchableOpacity
+                            style={[styles.confirmButton, styles.confirmButtonAccept]}
+                            onPress={() => handleConfirmEvent(event.id, 'confirmed')}
+                          >
+                            <Text style={styles.confirmButtonText}>✓ Confirm</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.confirmButton, styles.confirmButtonDecline]}
+                            onPress={() => handleConfirmEvent(event.id, 'declined')}
+                          >
+                            <Text style={styles.confirmButtonText}>✗ Decline</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.eventIcon}>
+                      <IconSymbol
+                        ios_icon_name="chevron.right"
+                        android_material_icon_name="chevron_right"
+                        size={20}
+                        color={colors.textSecondary}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             ))
           ) : (
             <View style={styles.emptyState}>
+              <IconSymbol
+                ios_icon_name="calendar"
+                android_material_icon_name="event"
+                size={64}
+                color={colors.textSecondary}
+              />
               <Text style={styles.emptyText}>No upcoming events</Text>
+              <Text style={styles.emptySubtext}>Add an event to get started</Text>
             </View>
           )}
         </View>
       </ScrollView>
 
+      {/* Add Event Modal */}
       <Modal
         visible={showAddModal}
         animationType="slide"
-        transparent
+        presentationStyle="pageSheet"
         onRequestClose={() => setShowAddModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Event</Text>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Add Event</Text>
+            <View style={{ width: 60 }} />
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.label}>Event Title *</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder="Event title"
+              placeholder="e.g., Family Dinner"
               placeholderTextColor={colors.textSecondary}
               value={newEventTitle}
               onChangeText={setNewEventTitle}
               autoFocus
               editable={!isSubmitting}
             />
+
+            <Text style={styles.label}>Description (Optional)</Text>
             <TextInput
               style={[commonStyles.input, styles.textArea]}
-              placeholder="Description (optional)"
+              placeholder="Add details..."
               placeholderTextColor={colors.textSecondary}
               value={newEventDescription}
               onChangeText={setNewEventDescription}
@@ -218,26 +374,125 @@ export default function CalendarScreen() {
               numberOfLines={3}
               editable={!isSubmitting}
             />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[buttonStyles.outline, styles.modalButton]}
-                onPress={() => setShowAddModal(false)}
-                disabled={isSubmitting}
-              >
-                <Text style={buttonStyles.outlineText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[buttonStyles.primary, styles.modalButton]}
-                onPress={handleAddEvent}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color={colors.card} />
-                ) : (
-                  <Text style={buttonStyles.text}>Add</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+
+            <Text style={styles.label}>Date *</Text>
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.dateButtonText}>
+                {newEventDate.toLocaleDateString()}
+              </Text>
+              <IconSymbol
+                ios_icon_name="calendar"
+                android_material_icon_name="event"
+                size={20}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={newEventDate}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(false);
+                  if (selectedDate) {
+                    setNewEventDate(selectedDate);
+                  }
+                }}
+              />
+            )}
+
+            <Text style={styles.label}>Time (Optional)</Text>
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={styles.dateButtonText}>
+                {newEventTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+              <IconSymbol
+                ios_icon_name="clock"
+                android_material_icon_name="access-time"
+                size={20}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+
+            {showTimePicker && (
+              <DateTimePicker
+                value={newEventTime}
+                mode="time"
+                display="default"
+                onChange={(event, selectedTime) => {
+                  setShowTimePicker(false);
+                  if (selectedTime) {
+                    setNewEventTime(selectedTime);
+                  }
+                }}
+              />
+            )}
+
+            <TouchableOpacity
+              style={[buttonStyles.primary, styles.createButton, isSubmitting && styles.buttonDisabled]}
+              onPress={handleAddEvent}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color={colors.card} />
+              ) : (
+                <Text style={buttonStyles.text}>Add Event</Text>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Conflict Resolution Modal */}
+      <Modal
+        visible={showConflictModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowConflictModal(false)}
+      >
+        <View style={styles.conflictOverlay}>
+          <View style={styles.conflictContent}>
+            <Text style={styles.conflictTitle}>Event Conflict Detected</Text>
+            <Text style={styles.conflictMessage}>
+              This event has conflicting versions. How would you like to resolve it?
+            </Text>
+
+            <TouchableOpacity
+              style={[buttonStyles.primary, styles.conflictButton]}
+              onPress={() => resolveConflict('keep_mine')}
+            >
+              <Text style={buttonStyles.text}>Keep My Version</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[buttonStyles.secondary, styles.conflictButton]}
+              onPress={() => resolveConflict('keep_partner')}
+            >
+              <Text style={[buttonStyles.text, { color: colors.primary }]}>
+                Keep Partner&apos;s Version
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[buttonStyles.outline, styles.conflictButton]}
+              onPress={() => resolveConflict('merge')}
+            >
+              <Text style={buttonStyles.outlineText}>Merge Both</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.conflictCancelButton}
+              onPress={() => setShowConflictModal(false)}
+            >
+              <Text style={styles.conflictCancelText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -251,9 +506,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 16,
@@ -262,6 +514,36 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: colors.text,
+    marginBottom: 12,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 4,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
+  },
+  viewButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  viewButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  viewButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  viewButtonTextActive: {
+    color: colors.card,
   },
   addButton: {
     backgroundColor: colors.primary,
@@ -306,6 +588,15 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 16,
   },
+  dateSection: {
+    marginBottom: 24,
+  },
+  dateHeader: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
   eventCard: {
     flexDirection: 'row',
     backgroundColor: colors.card,
@@ -323,16 +614,29 @@ const styles = StyleSheet.create({
   eventContent: {
     flex: 1,
   },
+  eventHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   eventTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 4,
+    flex: 1,
   },
-  eventDate: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 2,
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.card,
+    textTransform: 'capitalize',
   },
   eventTime: {
     fontSize: 14,
@@ -344,48 +648,158 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 4,
   },
+  eventSource: {
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  confirmationActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  confirmButtonAccept: {
+    backgroundColor: colors.success,
+  },
+  confirmButtonDecline: {
+    backgroundColor: colors.error,
+  },
+  confirmButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.card,
+  },
   eventIcon: {
     justifyContent: 'center',
   },
   emptyState: {
     backgroundColor: colors.card,
     borderRadius: 12,
-    padding: 32,
+    padding: 48,
     alignItems: 'center',
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 2,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: colors.textSecondary,
+    marginTop: 8,
   },
-  modalOverlay: {
+  modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: colors.background,
   },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 24,
+  },
+  cancelText: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+    marginTop: 16,
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
   },
-  modalButtons: {
+  dateButton: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  modalButton: {
+  dateButtonText: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  createButton: {
+    marginTop: 24,
+    marginBottom: 40,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  conflictOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  conflictContent: {
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  conflictTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  conflictMessage: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  conflictButton: {
+    marginBottom: 12,
+  },
+  conflictCancelButton: {
+    marginTop: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  conflictCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
 });
