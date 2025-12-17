@@ -1,13 +1,17 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Poll, PollOption, PollVote, PollComment } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { realtimeCache } from '@/utils/realtimeCache';
 
 export function usePolls() {
   const { user } = useAuth();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.householdId) {
@@ -16,10 +20,37 @@ export function usePolls() {
     } else {
       setIsLoading(false);
     }
+
+    return () => {
+      if (channelRef.current) {
+        console.log('usePolls: Unsubscribing from real-time updates');
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [user?.householdId]);
 
-  const loadPolls = async () => {
+  const loadPolls = async (skipCache = false) => {
+    // Prevent concurrent loads
+    if (loadingRef.current) {
+      console.log('usePolls: Load already in progress, skipping');
+      return;
+    }
+
     try {
+      loadingRef.current = true;
+      const cacheKey = `polls_${user?.householdId}`;
+
+      // Check cache first (unless explicitly skipped)
+      if (!skipCache) {
+        const cached = realtimeCache.get<Poll[]>(cacheKey);
+        if (cached) {
+          setPolls(cached);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       console.log('usePolls: Loading polls');
       const { data, error } = await supabase
         .from('polls')
@@ -30,7 +61,7 @@ export function usePolls() {
       if (error) throw error;
 
       if (data) {
-        setPolls(data.map(poll => ({
+        const mappedPolls = data.map(poll => ({
           id: poll.id,
           householdId: poll.household_id,
           title: poll.title,
@@ -40,18 +71,37 @@ export function usePolls() {
           isActive: poll.is_active,
           createdAt: poll.created_at,
           updatedAt: poll.updated_at,
-        })));
+        }));
+        
+        setPolls(mappedPolls);
+        
+        // Cache the results for 5 seconds
+        realtimeCache.set(cacheKey, mappedPolls, 5000);
       }
     } catch (error) {
       console.error('usePolls: Error loading polls:', error);
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   };
 
   const subscribeToPolls = () => {
+    // Prevent duplicate subscriptions
+    if (channelRef.current?.state === 'subscribed') {
+      console.log('usePolls: Already subscribed to real-time updates');
+      return;
+    }
+
+    console.log('usePolls: Subscribing to real-time poll updates');
+    
     const channel = supabase
-      .channel('polls_changes')
+      .channel(`household:${user?.householdId}:polls`, {
+        config: {
+          broadcast: { self: false },
+          private: false,
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -62,14 +112,21 @@ export function usePolls() {
         },
         () => {
           console.log('usePolls: Polls changed, reloading');
-          loadPolls();
+          
+          // Throttle updates
+          realtimeCache.throttle(
+            `polls_reload_${user?.householdId}`,
+            () => {
+              realtimeCache.invalidate(`polls_${user?.householdId}`);
+              loadPolls(true);
+            },
+            1500 // 1.5 second throttle
+          );
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    channelRef.current = channel;
   };
 
   const createPoll = async (title: string, description: string, options: string[], expiresAt?: string) => {
@@ -106,6 +163,10 @@ export function usePolls() {
       if (optionsError) throw optionsError;
 
       console.log('usePolls: Poll created successfully');
+      
+      // Invalidate cache
+      realtimeCache.invalidate(`polls_${user?.householdId}`);
+      
       return { data: pollData, error: null };
     } catch (error: any) {
       console.error('usePolls: Error creating poll:', error);
@@ -115,6 +176,14 @@ export function usePolls() {
 
   const getPollOptions = async (pollId: string): Promise<PollOption[]> => {
     try {
+      const cacheKey = `poll_options_${pollId}`;
+      
+      // Check cache first
+      const cached = realtimeCache.get<PollOption[]>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       const { data, error } = await supabase
         .from('poll_options')
         .select('*')
@@ -123,13 +192,18 @@ export function usePolls() {
 
       if (error) throw error;
 
-      return data.map(option => ({
+      const options = data.map(option => ({
         id: option.id,
         pollId: option.poll_id,
         optionText: option.option_text,
         voteCount: option.vote_count,
         createdAt: option.created_at,
       }));
+      
+      // Cache for 3 seconds
+      realtimeCache.set(cacheKey, options, 3000);
+      
+      return options;
     } catch (error) {
       console.error('usePolls: Error loading poll options:', error);
       return [];
@@ -185,6 +259,10 @@ export function usePolls() {
       if (incrementError) console.error('Error incrementing vote count:', incrementError);
 
       console.log('usePolls: Vote recorded successfully');
+      
+      // Invalidate cache
+      realtimeCache.invalidate(`poll_options_${pollId}`);
+      
       return { error: null };
     } catch (error: any) {
       console.error('usePolls: Error voting:', error);
@@ -212,6 +290,14 @@ export function usePolls() {
 
   const getPollComments = async (pollId: string): Promise<PollComment[]> => {
     try {
+      const cacheKey = `poll_comments_${pollId}`;
+      
+      // Check cache first
+      const cached = realtimeCache.get<PollComment[]>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       const { data, error } = await supabase
         .from('poll_comments')
         .select('*, users(id, name, photo_url)')
@@ -220,7 +306,7 @@ export function usePolls() {
 
       if (error) throw error;
 
-      return data.map(comment => ({
+      const comments = data.map(comment => ({
         id: comment.id,
         pollId: comment.poll_id,
         userId: comment.user_id,
@@ -232,6 +318,11 @@ export function usePolls() {
           photoUrl: comment.users.photo_url,
         } : undefined,
       }));
+      
+      // Cache for 3 seconds
+      realtimeCache.set(cacheKey, comments, 3000);
+      
+      return comments;
     } catch (error) {
       console.error('usePolls: Error loading poll comments:', error);
       return [];
@@ -253,6 +344,10 @@ export function usePolls() {
       if (error) throw error;
 
       console.log('usePolls: Comment added successfully');
+      
+      // Invalidate cache
+      realtimeCache.invalidate(`poll_comments_${pollId}`);
+      
       return { error: null };
     } catch (error: any) {
       console.error('usePolls: Error adding comment:', error);
@@ -269,6 +364,6 @@ export function usePolls() {
     getUserVote,
     getPollComments,
     addComment,
-    refreshPolls: loadPolls,
+    refreshPolls: () => loadPolls(true),
   };
 }

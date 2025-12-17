@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { HouseholdEvent } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useEvents() {
   const { user } = useAuth();
@@ -11,6 +12,7 @@ export function useEvents() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.householdId) {
@@ -30,8 +32,27 @@ export function useEvents() {
     };
   }, [user?.householdId]);
 
-  const loadEvents = async () => {
+  const loadEvents = async (skipCache = false) => {
+    // Prevent concurrent loads
+    if (loadingRef.current) {
+      console.log('useEvents: Load already in progress, skipping');
+      return;
+    }
+
     try {
+      loadingRef.current = true;
+      const cacheKey = `events_${user?.householdId}`;
+
+      // Check cache first (unless explicitly skipped)
+      if (!skipCache) {
+        const cached = realtimeCache.get<HouseholdEvent[]>(cacheKey);
+        if (cached) {
+          setEvents(cached);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       console.log('useEvents: Loading events for household:', user?.householdId);
       const { data, error } = await supabase
         .from('household_events')
@@ -55,26 +76,38 @@ export function useEvents() {
           createdAt: event.created_at,
           updatedAt: event.updated_at,
         }));
+        
         setEvents(mappedEvents);
+        
+        // Cache the results for 3 seconds
+        realtimeCache.set(cacheKey, mappedEvents, 3000);
       }
     } catch (err: any) {
       console.error('useEvents: Error loading events:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   };
 
   const subscribeToEvents = () => {
     // Prevent duplicate subscriptions
-    if (channelRef.current) {
+    if (channelRef.current?.state === 'subscribed') {
       console.log('useEvents: Already subscribed to real-time updates');
       return;
     }
 
     console.log('useEvents: Subscribing to real-time event updates');
+    
+    // Use dedicated topic for better performance
     const channel = supabase
-      .channel(`household_events_changes_${user?.householdId}`)
+      .channel(`household:${user?.householdId}:events`, {
+        config: {
+          broadcast: { self: false },
+          private: false, // Will be set to true once we add RLS policies
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -85,7 +118,17 @@ export function useEvents() {
         },
         (payload) => {
           console.log('useEvents: Real-time update received:', payload.eventType);
-          loadEvents();
+          
+          // Throttle updates to prevent excessive reloads
+          realtimeCache.throttle(
+            `events_reload_${user?.householdId}`,
+            () => {
+              // Invalidate cache and reload
+              realtimeCache.invalidate(`events_${user?.householdId}`);
+              loadEvents(true);
+            },
+            1000 // 1 second throttle
+          );
         }
       )
       .subscribe((status) => {
@@ -118,6 +161,10 @@ export function useEvents() {
       if (error) throw error;
 
       console.log('useEvents: Event created successfully');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`events_${user?.householdId}`);
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('useEvents: Error creating event:', err);
@@ -146,6 +193,10 @@ export function useEvents() {
       if (error) throw error;
 
       console.log('useEvents: Event updated successfully');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`events_${user?.householdId}`);
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('useEvents: Error updating event:', err);
@@ -164,6 +215,10 @@ export function useEvents() {
       if (error) throw error;
 
       console.log('useEvents: Event deleted successfully');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`events_${user?.householdId}`);
+      
       return { error: null };
     } catch (err: any) {
       console.error('useEvents: Error deleting event:', err);
@@ -178,6 +233,6 @@ export function useEvents() {
     createEvent,
     updateEvent,
     deleteEvent,
-    refreshEvents: loadEvents,
+    refreshEvents: () => loadEvents(true),
   };
 }

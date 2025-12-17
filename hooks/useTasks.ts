@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { Task } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useTasks() {
   const { user } = useAuth();
@@ -11,6 +12,7 @@ export function useTasks() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.householdId) {
@@ -30,8 +32,27 @@ export function useTasks() {
     };
   }, [user?.householdId]);
 
-  const loadTasks = async () => {
+  const loadTasks = async (skipCache = false) => {
+    // Prevent concurrent loads
+    if (loadingRef.current) {
+      console.log('useTasks: Load already in progress, skipping');
+      return;
+    }
+
     try {
+      loadingRef.current = true;
+      const cacheKey = `tasks_${user?.householdId}`;
+
+      // Check cache first (unless explicitly skipped)
+      if (!skipCache) {
+        const cached = realtimeCache.get<Task[]>(cacheKey);
+        if (cached) {
+          setTasks(cached);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       console.log('useTasks: Loading tasks for household:', user?.householdId);
       const { data, error } = await supabase
         .from('tasks')
@@ -55,26 +76,38 @@ export function useTasks() {
           createdAt: task.created_at,
           updatedAt: task.updated_at,
         }));
+        
         setTasks(mappedTasks);
+        
+        // Cache the results for 3 seconds
+        realtimeCache.set(cacheKey, mappedTasks, 3000);
       }
     } catch (err: any) {
       console.error('useTasks: Error loading tasks:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   };
 
   const subscribeToTasks = () => {
     // Prevent duplicate subscriptions
-    if (channelRef.current) {
+    if (channelRef.current?.state === 'subscribed') {
       console.log('useTasks: Already subscribed to real-time updates');
       return;
     }
 
     console.log('useTasks: Subscribing to real-time task updates');
+    
+    // Use dedicated topic for better performance
     const channel = supabase
-      .channel(`tasks_changes_${user?.householdId}`)
+      .channel(`household:${user?.householdId}:tasks`, {
+        config: {
+          broadcast: { self: false },
+          private: false, // Will be set to true once we add RLS policies
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -85,7 +118,18 @@ export function useTasks() {
         },
         (payload) => {
           console.log('useTasks: Real-time update received:', payload.eventType);
-          loadTasks();
+          
+          // Throttle updates to prevent excessive reloads
+          // Multiple rapid changes will be batched into a single reload after 1 second
+          realtimeCache.throttle(
+            `tasks_reload_${user?.householdId}`,
+            () => {
+              // Invalidate cache and reload
+              realtimeCache.invalidate(`tasks_${user?.householdId}`);
+              loadTasks(true);
+            },
+            1000 // 1 second throttle
+          );
         }
       )
       .subscribe((status) => {
@@ -118,6 +162,10 @@ export function useTasks() {
       if (error) throw error;
 
       console.log('useTasks: Task created successfully');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`tasks_${user?.householdId}`);
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('useTasks: Error creating task:', err);
@@ -152,6 +200,10 @@ export function useTasks() {
       if (error) throw error;
 
       console.log('useTasks: Task updated successfully');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`tasks_${user?.householdId}`);
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('useTasks: Error updating task:', err);
@@ -170,6 +222,10 @@ export function useTasks() {
       if (error) throw error;
 
       console.log('useTasks: Task deleted successfully');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`tasks_${user?.householdId}`);
+      
       return { error: null };
     } catch (err: any) {
       console.error('useTasks: Error deleting task:', err);
@@ -184,6 +240,6 @@ export function useTasks() {
     createTask,
     updateTask,
     deleteTask,
-    refreshTasks: loadTasks,
+    refreshTasks: () => loadTasks(true),
   };
 }

@@ -1,13 +1,17 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Meal, MealIngredient } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useMeals() {
   const { user } = useAuth();
   const [meals, setMeals] = useState<Meal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.householdId) {
@@ -16,10 +20,37 @@ export function useMeals() {
     } else {
       setIsLoading(false);
     }
+
+    return () => {
+      if (channelRef.current) {
+        console.log('useMeals: Unsubscribing from real-time updates');
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [user?.householdId]);
 
-  const loadMeals = async () => {
+  const loadMeals = async (skipCache = false) => {
+    // Prevent concurrent loads
+    if (loadingRef.current) {
+      console.log('useMeals: Load already in progress, skipping');
+      return;
+    }
+
     try {
+      loadingRef.current = true;
+      const cacheKey = `meals_${user?.householdId}`;
+
+      // Check cache first (unless explicitly skipped)
+      if (!skipCache) {
+        const cached = realtimeCache.get<Meal[]>(cacheKey);
+        if (cached) {
+          setMeals(cached);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       console.log('useMeals: Loading meals');
       const { data, error } = await supabase
         .from('meals')
@@ -30,7 +61,7 @@ export function useMeals() {
       if (error) throw error;
 
       if (data) {
-        setMeals(data.map(meal => ({
+        const mappedMeals = data.map(meal => ({
           id: meal.id,
           householdId: meal.household_id,
           title: meal.title,
@@ -41,18 +72,37 @@ export function useMeals() {
           createdByUserId: meal.created_by_user_id,
           createdAt: meal.created_at,
           updatedAt: meal.updated_at,
-        })));
+        }));
+        
+        setMeals(mappedMeals);
+        
+        // Cache the results for 5 seconds
+        realtimeCache.set(cacheKey, mappedMeals, 5000);
       }
     } catch (error) {
       console.error('useMeals: Error loading meals:', error);
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   };
 
   const subscribeToMeals = () => {
+    // Prevent duplicate subscriptions
+    if (channelRef.current?.state === 'subscribed') {
+      console.log('useMeals: Already subscribed to real-time updates');
+      return;
+    }
+
+    console.log('useMeals: Subscribing to real-time meal updates');
+    
     const channel = supabase
-      .channel('meals_changes')
+      .channel(`household:${user?.householdId}:meals`, {
+        config: {
+          broadcast: { self: false },
+          private: false,
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -63,14 +113,21 @@ export function useMeals() {
         },
         () => {
           console.log('useMeals: Meals changed, reloading');
-          loadMeals();
+          
+          // Throttle updates
+          realtimeCache.throttle(
+            `meals_reload_${user?.householdId}`,
+            () => {
+              realtimeCache.invalidate(`meals_${user?.householdId}`);
+              loadMeals(true);
+            },
+            1500 // 1.5 second throttle
+          );
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    channelRef.current = channel;
   };
 
   const createMeal = async (
@@ -140,6 +197,10 @@ export function useMeals() {
       });
 
       console.log('useMeals: Meal created successfully');
+      
+      // Invalidate cache
+      realtimeCache.invalidate(`meals_${user?.householdId}`);
+      
       return { data: mealData, error: null };
     } catch (error: any) {
       console.error('useMeals: Error creating meal:', error);
@@ -169,6 +230,10 @@ export function useMeals() {
       if (error) throw error;
 
       console.log('useMeals: Meal updated successfully');
+      
+      // Invalidate cache
+      realtimeCache.invalidate(`meals_${user?.householdId}`);
+      
       return { error: null };
     } catch (error: any) {
       console.error('useMeals: Error updating meal:', error);
@@ -188,6 +253,10 @@ export function useMeals() {
       if (error) throw error;
 
       console.log('useMeals: Meal deleted successfully');
+      
+      // Invalidate cache
+      realtimeCache.invalidate(`meals_${user?.householdId}`);
+      
       return { error: null };
     } catch (error: any) {
       console.error('useMeals: Error deleting meal:', error);
@@ -197,6 +266,14 @@ export function useMeals() {
 
   const getMealIngredients = async (mealId: string): Promise<MealIngredient[]> => {
     try {
+      const cacheKey = `meal_ingredients_${mealId}`;
+      
+      // Check cache first
+      const cached = realtimeCache.get<MealIngredient[]>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       const { data, error } = await supabase
         .from('meal_ingredients')
         .select('*')
@@ -204,7 +281,7 @@ export function useMeals() {
 
       if (error) throw error;
 
-      return data.map(ing => ({
+      const ingredients = data.map(ing => ({
         id: ing.id,
         mealId: ing.meal_id,
         shoppingItemId: ing.shopping_item_id,
@@ -212,6 +289,11 @@ export function useMeals() {
         quantity: ing.quantity,
         createdAt: ing.created_at,
       }));
+      
+      // Cache for 5 seconds
+      realtimeCache.set(cacheKey, ingredients, 5000);
+      
+      return ingredients;
     } catch (error) {
       console.error('useMeals: Error loading meal ingredients:', error);
       return [];
@@ -225,6 +307,6 @@ export function useMeals() {
     updateMeal,
     deleteMeal,
     getMealIngredients,
-    refreshMeals: loadMeals,
+    refreshMeals: () => loadMeals(true),
   };
 }

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { ShoppingItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useShoppingList() {
   const { user } = useAuth();
@@ -11,6 +12,7 @@ export function useShoppingList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.householdId) {
@@ -30,8 +32,27 @@ export function useShoppingList() {
     };
   }, [user?.householdId]);
 
-  const loadItems = async () => {
+  const loadItems = async (skipCache = false) => {
+    // Prevent concurrent loads
+    if (loadingRef.current) {
+      console.log('useShoppingList: Load already in progress, skipping');
+      return;
+    }
+
     try {
+      loadingRef.current = true;
+      const cacheKey = `shopping_items_${user?.householdId}`;
+
+      // Check cache first (unless explicitly skipped)
+      if (!skipCache) {
+        const cached = realtimeCache.get<ShoppingItem[]>(cacheKey);
+        if (cached) {
+          setItems(cached);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       console.log('useShoppingList: Loading items for household:', user?.householdId);
       const { data, error } = await supabase
         .from('shopping_items')
@@ -54,26 +75,38 @@ export function useShoppingList() {
           createdAt: item.created_at,
           updatedAt: item.updated_at,
         }));
+        
         setItems(mappedItems);
+        
+        // Cache the results for 3 seconds
+        realtimeCache.set(cacheKey, mappedItems, 3000);
       }
     } catch (err: any) {
       console.error('useShoppingList: Error loading items:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   };
 
   const subscribeToItems = () => {
     // Prevent duplicate subscriptions
-    if (channelRef.current) {
+    if (channelRef.current?.state === 'subscribed') {
       console.log('useShoppingList: Already subscribed to real-time updates');
       return;
     }
 
     console.log('useShoppingList: Subscribing to real-time updates');
+    
+    // Use dedicated topic for better performance
     const channel = supabase
-      .channel(`shopping_items_changes_${user?.householdId}`)
+      .channel(`household:${user?.householdId}:shopping`, {
+        config: {
+          broadcast: { self: false },
+          private: false, // Will be set to true once we add RLS policies
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -84,7 +117,17 @@ export function useShoppingList() {
         },
         (payload) => {
           console.log('useShoppingList: Real-time update received:', payload.eventType);
-          loadItems();
+          
+          // Throttle updates to prevent excessive reloads
+          realtimeCache.throttle(
+            `shopping_reload_${user?.householdId}`,
+            () => {
+              // Invalidate cache and reload
+              realtimeCache.invalidate(`shopping_items_${user?.householdId}`);
+              loadItems(true);
+            },
+            1000 // 1 second throttle
+          );
         }
       )
       .subscribe((status) => {
@@ -115,6 +158,10 @@ export function useShoppingList() {
       if (error) throw error;
 
       console.log('useShoppingList: Item added successfully');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`shopping_items_${user?.householdId}`);
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error adding item:', err);
@@ -139,6 +186,10 @@ export function useShoppingList() {
       if (error) throw error;
 
       console.log('useShoppingList: Item updated successfully');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`shopping_items_${user?.householdId}`);
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error updating item:', err);
@@ -157,6 +208,10 @@ export function useShoppingList() {
       if (error) throw error;
 
       console.log('useShoppingList: Item deleted successfully');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`shopping_items_${user?.householdId}`);
+      
       return { error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error deleting item:', err);
@@ -171,6 +226,6 @@ export function useShoppingList() {
     addItem,
     togglePurchased,
     deleteItem,
-    refreshItems: loadItems,
+    refreshItems: () => loadItems(true),
   };
 }

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { Notification } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useNotifications() {
   const { user } = useAuth();
@@ -11,6 +12,7 @@ export function useNotifications() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -30,8 +32,27 @@ export function useNotifications() {
     };
   }, [user?.id]);
 
-  const loadNotifications = async () => {
+  const loadNotifications = async (skipCache = false) => {
+    // Prevent concurrent loads
+    if (loadingRef.current) {
+      console.log('useNotifications: Load already in progress, skipping');
+      return;
+    }
+
     try {
+      loadingRef.current = true;
+      const cacheKey = `notifications_${user?.id}`;
+
+      // Check cache first (unless explicitly skipped)
+      if (!skipCache) {
+        const cached = realtimeCache.get<Notification[]>(cacheKey);
+        if (cached) {
+          setNotifications(cached);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       console.log('useNotifications: Loading notifications for user:', user?.id);
       const { data, error } = await supabase
         .from('notifications')
@@ -54,26 +75,38 @@ export function useNotifications() {
           relatedId: notif.related_id,
           createdAt: notif.created_at,
         }));
+        
         setNotifications(mappedNotifications);
+        
+        // Cache the results for 5 seconds (notifications are less time-sensitive)
+        realtimeCache.set(cacheKey, mappedNotifications, 5000);
       }
     } catch (err: any) {
       console.error('useNotifications: Error loading notifications:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   };
 
   const subscribeToNotifications = () => {
     // Prevent duplicate subscriptions
-    if (channelRef.current) {
+    if (channelRef.current?.state === 'subscribed') {
       console.log('useNotifications: Already subscribed to real-time updates');
       return;
     }
 
     console.log('useNotifications: Subscribing to real-time notification updates');
+    
+    // Use dedicated topic for better performance
     const channel = supabase
-      .channel(`notifications_changes_${user?.id}`)
+      .channel(`user:${user?.id}:notifications`, {
+        config: {
+          broadcast: { self: false },
+          private: false, // Will be set to true once we add RLS policies
+        },
+      })
       .on(
         'postgres_changes',
         {
@@ -84,7 +117,18 @@ export function useNotifications() {
         },
         (payload) => {
           console.log('useNotifications: Real-time update received:', payload.eventType);
-          loadNotifications();
+          
+          // Throttle updates to prevent excessive reloads
+          // Notifications can be slightly delayed, so use 2 second throttle
+          realtimeCache.throttle(
+            `notifications_reload_${user?.id}`,
+            () => {
+              // Invalidate cache and reload
+              realtimeCache.invalidate(`notifications_${user?.id}`);
+              loadNotifications(true);
+            },
+            2000 // 2 second throttle
+          );
         }
       )
       .subscribe((status) => {
@@ -105,6 +149,10 @@ export function useNotifications() {
       if (error) throw error;
 
       console.log('useNotifications: Notification marked as read');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`notifications_${user?.id}`);
+      
       return { error: null };
     } catch (err: any) {
       console.error('useNotifications: Error marking notification as read:', err);
@@ -124,6 +172,10 @@ export function useNotifications() {
       if (error) throw error;
 
       console.log('useNotifications: All notifications marked as read');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`notifications_${user?.id}`);
+      
       return { error: null };
     } catch (err: any) {
       console.error('useNotifications: Error marking all notifications as read:', err);
@@ -142,6 +194,10 @@ export function useNotifications() {
       if (error) throw error;
 
       console.log('useNotifications: Notification deleted');
+      
+      // Invalidate cache immediately for instant UI update
+      realtimeCache.invalidate(`notifications_${user?.id}`);
+      
       return { error: null };
     } catch (err: any) {
       console.error('useNotifications: Error deleting notification:', err);
@@ -160,7 +216,7 @@ export function useNotifications() {
     markAsRead,
     markAllAsRead,
     deleteNotification,
-    refreshNotifications: loadNotifications,
+    refreshNotifications: () => loadNotifications(true),
     getUnreadCount,
   };
 }

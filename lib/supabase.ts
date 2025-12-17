@@ -30,4 +30,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  realtime: {
+    params: {
+      // Enable info logging for debugging (can be changed to 'error' in production)
+      log_level: 'info',
+      // Optimize reconnection timing
+      reconnectAfterMs: 1000,
+      // Heartbeat interval to keep connection alive
+      heartbeatIntervalMs: 30000,
+    },
+  },
+  global: {
+    headers: {
+      // Add custom headers if needed
+      'x-client-info': 'househld-app',
+    },
+  },
 });
