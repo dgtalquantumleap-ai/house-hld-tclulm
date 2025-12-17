@@ -14,7 +14,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useEvents } from '@/hooks/useEvents';
 import { useShoppingList } from '@/hooks/useShoppingList';
-import { useExpenses } from '@/hooks/useExpenses';
+import { useMeals } from '@/hooks/useMeals';
+import { useNotifications } from '@/hooks/useNotifications';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
@@ -24,17 +25,18 @@ export default function HomeScreen() {
   const { tasks, isLoading: tasksLoading, refreshTasks } = useTasks();
   const { events, isLoading: eventsLoading, refreshEvents } = useEvents();
   const { items, isLoading: itemsLoading, refreshItems } = useShoppingList();
-  const { expenses, isLoading: expensesLoading, refreshExpenses, getTotalAmount } = useExpenses();
+  const { meals, isLoading: mealsLoading, refreshMeals } = useMeals();
+  const { notifications, unreadCount, markAsRead } = useNotifications();
 
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refreshTasks(), refreshEvents(), refreshItems(), refreshExpenses()]);
+    await Promise.all([refreshTasks(), refreshEvents(), refreshItems(), refreshMeals()]);
     setRefreshing(false);
   };
 
-  // Filter today's tasks
+  // Filter today's data
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -46,18 +48,29 @@ export default function HomeScreen() {
     return dueDate >= today && dueDate < tomorrow && task.status !== 'completed';
   }).slice(0, 3);
 
-  // Get upcoming events
   const upcomingEvents = events
     .filter(event => new Date(event.date) >= today)
     .slice(0, 3);
 
-  // Get needed shopping items
+  const todaysMeals = meals
+    .filter(meal => {
+      const mealDate = new Date(meal.mealDate);
+      return mealDate >= today && mealDate < tomorrow;
+    })
+    .slice(0, 2);
+
   const neededItems = items.filter(item => !item.purchased).slice(0, 3);
 
-  // Get total expenses
-  const totalExpenses = getTotalAmount();
+  const recentNotifications = notifications
+    .filter(n => !n.read)
+    .slice(0, 3);
 
-  const isLoading = tasksLoading || eventsLoading || itemsLoading || expensesLoading;
+  const isLoading = tasksLoading || eventsLoading || itemsLoading || mealsLoading;
+
+  const handleQuickConfirm = async (notificationId: string, action: 'acknowledged' | 'done') => {
+    await markAsRead(notificationId);
+    // Additional logic for specific actions can be added here
+  };
 
   if (isLoading && !refreshing) {
     return (
@@ -80,6 +93,22 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>Hello, {user?.name || 'there'}! 👋</Text>
           <Text style={styles.subtitle}>Here&apos;s what&apos;s happening today</Text>
         </View>
+        {unreadCount > 0 && (
+          <TouchableOpacity 
+            style={styles.notificationBadge}
+            onPress={() => router.push('/modal')}
+          >
+            <IconSymbol
+              ios_icon_name="bell.fill"
+              android_material_icon_name="notifications"
+              size={24}
+              color={colors.card}
+            />
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Quick Stats */}
@@ -95,6 +124,17 @@ export default function HomeScreen() {
           <Text style={styles.statLabel}>Tasks Today</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/calendar')}>
+          <IconSymbol
+            ios_icon_name="calendar.circle.fill"
+            android_material_icon_name="event"
+            size={32}
+            color={colors.accent}
+          />
+          <Text style={styles.statNumber}>{upcomingEvents.length}</Text>
+          <Text style={styles.statLabel}>Events</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/shopping')}>
           <IconSymbol
             ios_icon_name="cart.fill"
@@ -105,19 +145,72 @@ export default function HomeScreen() {
           <Text style={styles.statNumber}>{neededItems.length}</Text>
           <Text style={styles.statLabel}>To Buy</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/expenses')}>
-          <IconSymbol
-            ios_icon_name="dollarsign.circle.fill"
-            android_material_icon_name="attach-money"
-            size={32}
-            color={colors.accent}
-          />
-          <Text style={styles.statNumber}>${totalExpenses.toFixed(0)}</Text>
-          <Text style={styles.statLabel}>Expenses</Text>
-        </TouchableOpacity>
       </View>
 
+      {/* Quick Notifications */}
+      {recentNotifications.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Quick Confirm</Text>
+            <TouchableOpacity onPress={() => router.push('/modal')}>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
+          </View>
+
+          {recentNotifications.map((notification) => (
+            <View key={notification.id} style={styles.notificationCard}>
+              <View style={styles.notificationContent}>
+                <Text style={styles.notificationTitle}>{notification.title}</Text>
+                <Text style={styles.notificationMessage}>{notification.message}</Text>
+              </View>
+              <View style={styles.notificationActions}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.acknowledgeButton]}
+                  onPress={() => handleQuickConfirm(notification.id, 'acknowledged')}
+                >
+                  <Text style={styles.actionButtonText}>✓</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.doneButton]}
+                  onPress={() => handleQuickConfirm(notification.id, 'done')}
+                >
+                  <Text style={styles.actionButtonText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Today's Meals */}
+      {todaysMeals.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Today&apos;s Meals</Text>
+          </View>
+
+          {todaysMeals.map((meal) => (
+            <View key={meal.id} style={styles.card}>
+              <View style={styles.cardIcon}>
+                <IconSymbol
+                  ios_icon_name="fork.knife"
+                  android_material_icon_name="restaurant"
+                  size={24}
+                  color={colors.accent}
+                />
+              </View>
+              <View style={styles.cardContent}>
+                <Text style={styles.cardTitle}>{meal.title}</Text>
+                <Text style={styles.cardSubtitle}>
+                  {meal.mealTime || 'No time set'} {meal.assignedToUserId ? '• Assigned' : ''}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Today's Tasks */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Today&apos;s Tasks</Text>
@@ -156,6 +249,7 @@ export default function HomeScreen() {
         )}
       </View>
 
+      {/* Upcoming Events */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Upcoming Events</Text>
@@ -184,6 +278,15 @@ export default function HomeScreen() {
                 <Text style={styles.cardSubtitle}>
                   {new Date(event.date).toLocaleDateString()} • {event.time || 'All day'}
                 </Text>
+                {event.confirmationStatus && (
+                  <Text style={[
+                    styles.statusBadge,
+                    event.confirmationStatus === 'confirmed' && styles.confirmedBadge,
+                    event.confirmationStatus === 'pending' && styles.pendingBadge,
+                  ]}>
+                    {event.confirmationStatus}
+                  </Text>
+                )}
               </View>
             </TouchableOpacity>
           ))
@@ -194,6 +297,7 @@ export default function HomeScreen() {
         )}
       </View>
 
+      {/* Shopping List */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Shopping List</Text>
@@ -246,6 +350,9 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 24,
   },
   greeting: {
@@ -257,6 +364,29 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  notificationBadge: {
+    position: 'relative',
+    backgroundColor: colors.primary,
+    borderRadius: 24,
+    padding: 12,
+  },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: colors.card,
+    fontSize: 12,
+    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',
@@ -330,6 +460,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
+  statusBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+    textTransform: 'capitalize',
+  },
+  confirmedBadge: {
+    color: colors.success,
+  },
+  pendingBadge: {
+    color: colors.warning,
+  },
   emptyState: {
     backgroundColor: colors.card,
     borderRadius: 12,
@@ -341,5 +483,52 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  notificationCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  notificationContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  notificationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  notificationMessage: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  notificationActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  acknowledgeButton: {
+    backgroundColor: colors.success,
+  },
+  doneButton: {
+    backgroundColor: colors.primary,
+  },
+  actionButtonText: {
+    color: colors.card,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

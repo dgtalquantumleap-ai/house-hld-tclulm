@@ -1,14 +1,6 @@
 
 export type UserRole = 'Adult' | 'Parent' | 'Child' | 'Roommate';
 
-export type TaskFrequency = 'one-time' | 'daily' | 'weekly' | 'monthly';
-
-export type TaskStatus = 'pending' | 'in-progress' | 'completed';
-
-export type EventRepeat = 'none' | 'daily' | 'weekly' | 'monthly';
-
-export type NotificationType = 'task' | 'event' | 'shopping' | 'expense' | 'invitation' | 'general';
-
 export interface User {
   id: string;
   name: string;
@@ -27,7 +19,8 @@ export interface Household {
   address?: string;
   createdByUserId: string;
   membersCount: number;
-  inviteCode?: string;
+  inviteCode: string;
+  adminUserIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -38,12 +31,22 @@ export interface Task {
   title: string;
   description?: string;
   assignedToUserId?: string;
-  frequency: TaskFrequency;
+  frequency: 'one-time' | 'daily' | 'weekly' | 'monthly';
   dueDate?: string;
-  status: TaskStatus;
-  createdByUserId: string;
+  status: 'pending' | 'in-progress' | 'completed';
+  createdByUserId?: string;
+  completedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  userId: string;
+  commentText: string;
+  createdAt: string;
+  user?: User;
 }
 
 export interface ShoppingItem {
@@ -52,10 +55,21 @@ export interface ShoppingItem {
   name: string;
   quantity?: string;
   category?: string;
-  addedByUserId: string;
+  addedByUserId?: string;
   purchased: boolean;
+  purchasedByUserId?: string;
+  purchasedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ShoppingItemComment {
+  id: string;
+  shoppingItemId: string;
+  userId: string;
+  commentText: string;
+  createdAt: string;
+  user?: User;
 }
 
 export interface HouseholdEvent {
@@ -65,9 +79,12 @@ export interface HouseholdEvent {
   date: string;
   time?: string;
   description?: string;
-  createdByUserId: string;
+  createdByUserId?: string;
   assignedToUserId?: string;
-  repeat: EventRepeat;
+  repeat: 'none' | 'daily' | 'weekly' | 'monthly';
+  confirmationStatus?: 'pending' | 'confirmed' | 'declined';
+  calendarSource?: string;
+  externalEventId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,10 +95,11 @@ export interface Expense {
   title: string;
   amount: number;
   category?: string;
-  createdByUserId: string;
-  paidByUserId: string;
+  createdByUserId?: string;
+  paidByUserId?: string;
   date: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Notification {
@@ -90,8 +108,107 @@ export interface Notification {
   householdId: string;
   title: string;
   message: string;
-  type: NotificationType;
+  type: 'task' | 'event' | 'shopping' | 'expense' | 'invitation' | 'general' | 'poll' | 'meal';
   read: boolean;
   relatedId?: string;
   createdAt: string;
+}
+
+export interface HouseholdInvitation {
+  id: string;
+  householdId: string;
+  email: string;
+  invitedByUserId?: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
+  acceptedAt?: string;
+}
+
+export interface CalendarConnection {
+  id: string;
+  userId: string;
+  provider: 'google' | 'apple';
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiry?: string;
+  calendarId?: string;
+  calendarName?: string;
+  isActive: boolean;
+  lastSyncAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Poll {
+  id: string;
+  householdId: string;
+  title: string;
+  description?: string;
+  createdByUserId?: string;
+  expiresAt?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PollOption {
+  id: string;
+  pollId: string;
+  optionText: string;
+  voteCount: number;
+  createdAt: string;
+}
+
+export interface PollVote {
+  id: string;
+  pollId: string;
+  optionId: string;
+  userId: string;
+  createdAt: string;
+}
+
+export interface PollComment {
+  id: string;
+  pollId: string;
+  userId: string;
+  commentText: string;
+  createdAt: string;
+  user?: User;
+}
+
+export interface Meal {
+  id: string;
+  householdId: string;
+  title: string;
+  description?: string;
+  mealDate: string;
+  mealTime?: string;
+  assignedToUserId?: string;
+  createdByUserId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MealIngredient {
+  id: string;
+  mealId: string;
+  shoppingItemId?: string;
+  ingredientName: string;
+  quantity?: string;
+  createdAt: string;
+}
+
+export interface UserSettings {
+  id: string;
+  userId: string;
+  pushNotificationsEnabled: boolean;
+  emailNotificationsEnabled: boolean;
+  taskNotifications: boolean;
+  eventNotifications: boolean;
+  shoppingNotifications: boolean;
+  pollNotifications: boolean;
+  mealNotifications: boolean;
+  showPersonalCalendarEvents: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

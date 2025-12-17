@@ -2,34 +2,28 @@
 import { StyleSheet } from 'react-native';
 
 export const colors = {
-  // Primary colors
+  // Main colors
   primary: '#6366F1',
-  primaryLight: '#E0E7FF',
   secondary: '#10B981',
   accent: '#F59E0B',
-  
-  // Background colors
   background: '#F9FAFB',
   card: '#FFFFFF',
-  
-  // Text colors
   text: '#111827',
   textSecondary: '#6B7280',
+  border: '#E5E7EB',
   
   // Status colors
   success: '#10B981',
-  error: '#EF4444',
   warning: '#F59E0B',
+  error: '#EF4444',
   info: '#3B82F6',
   
-  // Border colors
-  border: '#E5E7EB',
-  
-  // Dark mode colors (for future implementation)
+  // Dark mode (can be toggled)
   darkBackground: '#111827',
   darkCard: '#1F2937',
   darkText: '#F9FAFB',
   darkTextSecondary: '#9CA3AF',
+  darkBorder: '#374151',
 };
 
 export const commonStyles = StyleSheet.create({
@@ -43,20 +37,28 @@ export const commonStyles = StyleSheet.create({
   },
   input: {
     backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
     color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
     marginBottom: 16,
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 2,
+  },
+  shadow: {
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
+  },
+  shadowLarge: {
+    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.12)',
+    elevation: 4,
   },
 });
 
@@ -68,6 +70,15 @@ export const buttonStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  secondary: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
   text: {
     color: colors.card,
     fontSize: 16,
@@ -75,24 +86,17 @@ export const buttonStyles = StyleSheet.create({
   },
   outline: {
     backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: colors.primary,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   outlineText: {
     color: colors.primary,
     fontSize: 16,
     fontWeight: '700',
-  },
-  secondary: {
-    backgroundColor: colors.secondary,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   disabled: {
     opacity: 0.5,

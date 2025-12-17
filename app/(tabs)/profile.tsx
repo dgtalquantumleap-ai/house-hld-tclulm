@@ -7,23 +7,20 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  TextInput,
-  Modal,
+  Switch,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, signOut, updateUser } = useAuth();
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editName, setEditName] = useState(user?.name || '');
-  const [editPhone, setEditPhone] = useState(user?.phone || '');
-  const [isUpdating, setIsUpdating] = useState(false);
+  const { user, signOut } = useAuth();
+  const { settings, updateSettings, isLoading } = useUserSettings();
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -36,10 +33,14 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              setIsSigningOut(true);
               await signOut();
-              router.replace('/(auth)/login');
+              router.replace('/(auth)');
             } catch (error: any) {
+              console.error('Sign out error:', error);
               Alert.alert('Error', error.message || 'Failed to sign out');
+            } finally {
+              setIsSigningOut(false);
             }
           },
         },
@@ -47,191 +48,222 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleUpdateProfile = async () => {
-    if (!editName.trim()) {
-      Alert.alert('Error', 'Name cannot be empty');
-      return;
-    }
-
-    setIsUpdating(true);
-    try {
-      await updateUser({
-        name: editName,
-        phone: editPhone || undefined,
-      });
-      setShowEditModal(false);
-      Alert.alert('Success', 'Profile updated successfully');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update profile');
-    } finally {
-      setIsUpdating(false);
-    }
+  const toggleSetting = async (key: keyof typeof settings, value: boolean) => {
+    if (!settings) return;
+    await updateSettings({ [key]: value });
   };
 
-  const menuItems = [
-    {
-      icon: 'person.fill',
-      androidIcon: 'person',
-      label: 'Edit Profile',
-      onPress: () => {
-        setEditName(user?.name || '');
-        setEditPhone(user?.phone || '');
-        setShowEditModal(true);
-      },
-    },
-    {
-      icon: 'house.fill',
-      androidIcon: 'home',
-      label: 'Household Settings',
-      onPress: () => router.push('/(auth)/onboarding'),
-    },
-    {
-      icon: 'checkmark.shield.fill',
-      androidIcon: 'verified_user',
-      label: 'Validation Dashboard',
-      onPress: () => router.push('/validation-dashboard'),
-      badge: 'DEV',
-    },
-    {
-      icon: 'bell.fill',
-      androidIcon: 'notifications',
-      label: 'Notifications',
-      onPress: () => Alert.alert('Coming Soon', 'Notification settings will be available soon'),
-    },
-    {
-      icon: 'questionmark.circle.fill',
-      androidIcon: 'help',
-      label: 'Help & Support',
-      onPress: () => Alert.alert('Help', 'Contact support at support@househld.com'),
-    },
-    {
-      icon: 'info.circle.fill',
-      androidIcon: 'info',
-      label: 'About',
-      onPress: () => Alert.alert('HouseHLD', 'Version 1.0.0\n\nA household management app for families and roommates.'),
-    },
-  ];
+  if (isLoading) {
+    return (
+      <View style={[styles.container, commonStyles.centerContent]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.title}>Profile</Text>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {user?.name?.charAt(0).toUpperCase() || 'U'}
+          </Text>
+        </View>
+        <Text style={styles.name}>{user?.name || 'User'}</Text>
+        <Text style={styles.email}>{user?.email}</Text>
+        <View style={styles.roleBadge}>
+          <Text style={styles.roleBadgeText}>{user?.role}</Text>
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0).toUpperCase() || '?'}
-            </Text>
+      {/* Household Management */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Household</Text>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/(tabs)/household')}
+        >
+          <View style={styles.menuItemLeft}>
+            <IconSymbol
+              ios_icon_name="house.fill"
+              android_material_icon_name="home"
+              size={24}
+              color={colors.primary}
+            />
+            <Text style={styles.menuItemText}>Manage Household</Text>
           </View>
-          <Text style={styles.name}>{user?.name || 'User'}</Text>
-          <Text style={styles.email}>{user?.email || ''}</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>{user?.role || 'Member'}</Text>
-          </View>
-        </View>
+          <IconSymbol
+            ios_icon_name="chevron.right"
+            android_material_icon_name="chevron-right"
+            size={24}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.menuSection}>
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.menuItem}
-              onPress={item.onPress}
-            >
-              <View style={styles.menuItemLeft}>
-                <View style={styles.menuIcon}>
-                  <IconSymbol
-                    ios_icon_name={item.icon}
-                    android_material_icon_name={item.androidIcon}
-                    size={20}
-                    color={colors.primary}
-                  />
-                </View>
-                <Text style={styles.menuLabel}>{item.label}</Text>
-                {item.badge && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{item.badge}</Text>
-                  </View>
-                )}
-              </View>
+      {/* Notification Settings */}
+      {settings && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Notifications</Text>
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
               <IconSymbol
-                ios_icon_name="chevron.right"
-                android_material_icon_name="chevron_right"
-                size={20}
-                color={colors.textSecondary}
+                ios_icon_name="bell.fill"
+                android_material_icon_name="notifications"
+                size={24}
+                color={colors.primary}
               />
-            </TouchableOpacity>
-          ))}
-        </View>
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingText}>Push Notifications</Text>
+                <Text style={styles.settingSubtext}>Receive push notifications</Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.pushNotificationsEnabled}
+              onValueChange={(value) => toggleSetting('pushNotificationsEnabled', value)}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.card}
+            />
+          </View>
 
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <IconSymbol
+                ios_icon_name="envelope.fill"
+                android_material_icon_name="email"
+                size={24}
+                color={colors.secondary}
+              />
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingText}>Email Notifications</Text>
+                <Text style={styles.settingSubtext}>Receive email updates</Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.emailNotificationsEnabled}
+              onValueChange={(value) => toggleSetting('emailNotificationsEnabled', value)}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.card}
+            />
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Text style={styles.settingText}>Task Notifications</Text>
+            </View>
+            <Switch
+              value={settings.taskNotifications}
+              onValueChange={(value) => toggleSetting('taskNotifications', value)}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.card}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Text style={styles.settingText}>Event Notifications</Text>
+            </View>
+            <Switch
+              value={settings.eventNotifications}
+              onValueChange={(value) => toggleSetting('eventNotifications', value)}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.card}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Text style={styles.settingText}>Shopping Notifications</Text>
+            </View>
+            <Switch
+              value={settings.shoppingNotifications}
+              onValueChange={(value) => toggleSetting('shoppingNotifications', value)}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.card}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Text style={styles.settingText}>Poll Notifications</Text>
+            </View>
+            <Switch
+              value={settings.pollNotifications}
+              onValueChange={(value) => toggleSetting('pollNotifications', value)}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.card}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Text style={styles.settingText}>Meal Notifications</Text>
+            </View>
+            <Switch
+              value={settings.mealNotifications}
+              onValueChange={(value) => toggleSetting('mealNotifications', value)}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.card}
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Privacy Settings */}
+      {settings && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Privacy</Text>
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <IconSymbol
+                ios_icon_name="eye.fill"
+                android_material_icon_name="visibility"
+                size={24}
+                color={colors.accent}
+              />
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingText}>Show Personal Calendar Events</Text>
+                <Text style={styles.settingSubtext}>
+                  Display your personal calendar events to household members
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.showPersonalCalendarEvents}
+              onValueChange={(value) => toggleSetting('showPersonalCalendarEvents', value)}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.card}
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Account Actions */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Account</Text>
+        
         <TouchableOpacity
           style={[buttonStyles.outline, styles.signOutButton]}
           onPress={handleSignOut}
+          disabled={isSigningOut}
         >
-          <IconSymbol
-            ios_icon_name="arrow.right.square"
-            android_material_icon_name="logout"
-            size={20}
-            color={colors.error}
-          />
-          <Text style={[buttonStyles.outlineText, { color: colors.error, marginLeft: 8 }]}>
-            Sign Out
-          </Text>
+          {isSigningOut ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Text style={buttonStyles.outlineText}>Sign Out</Text>
+          )}
         </TouchableOpacity>
-      </ScrollView>
+      </View>
 
-      <Modal
-        visible={showEditModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowEditModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Profile</Text>
-            <TextInput
-              style={commonStyles.input}
-              placeholder="Name"
-              placeholderTextColor={colors.textSecondary}
-              value={editName}
-              onChangeText={setEditName}
-              autoFocus
-              editable={!isUpdating}
-            />
-            <TextInput
-              style={commonStyles.input}
-              placeholder="Phone (optional)"
-              placeholderTextColor={colors.textSecondary}
-              value={editPhone}
-              onChangeText={setEditPhone}
-              keyboardType="phone-pad"
-              editable={!isUpdating}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[buttonStyles.outline, styles.modalButton]}
-                onPress={() => setShowEditModal(false)}
-                disabled={isUpdating}
-              >
-                <Text style={buttonStyles.outlineText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[buttonStyles.primary, styles.modalButton]}
-                onPress={handleUpdateProfile}
-                disabled={isUpdating}
-              >
-                {isUpdating ? (
-                  <ActivityIndicator color={colors.card} />
-                ) : (
-                  <Text style={buttonStyles.text}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>HouseHLD v1.0.0</Text>
+        <Text style={styles.footerText}>Made with ❤️ for families</Text>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -240,142 +272,123 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 60 : 60,
-    paddingBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.text,
-  },
   content: {
+    paddingTop: 60,
     paddingHorizontal: 16,
     paddingBottom: 100,
   },
-  profileCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 24,
+  header: {
     alignItems: 'center',
-    marginBottom: 24,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
+    marginBottom: 32,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   avatarText: {
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 40,
+    fontWeight: '700',
     color: colors.card,
   },
   name: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
     color: colors.text,
     marginBottom: 4,
   },
   email: {
-    fontSize: 14,
+    fontSize: 16,
     color: colors.textSecondary,
     marginBottom: 12,
   },
   roleBadge: {
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingHorizontal: 16,
     paddingVertical: 6,
-    borderRadius: 12,
   },
-  roleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
+  roleBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.card,
   },
-  menuSection: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 24,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
+  section: {
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
   },
   menuItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
   },
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
-  menuIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  menuLabel: {
+  menuItemText: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+    marginLeft: 16,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  badge: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginLeft: 8,
+  settingTextContainer: {
+    marginLeft: 16,
+    flex: 1,
   },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.card,
+  settingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  settingSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 8,
   },
   signOutButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    marginTop: 8,
+  },
+  footer: {
     alignItems: 'center',
-    borderColor: colors.error,
+    paddingVertical: 24,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 24,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
+  footerText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 4,
   },
 });
