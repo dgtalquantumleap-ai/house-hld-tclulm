@@ -20,6 +20,8 @@ import { UserRole } from '@/types';
 import { IconSymbol } from '@/components/IconSymbol';
 import * as ImagePicker from 'expo-image-picker';
 
+type CalendarProvider = 'google' | 'apple';
+
 export default function OnboardingScreen() {
   const router = useRouter();
   const { updateUser, user } = useAuth();
@@ -35,20 +37,25 @@ export default function OnboardingScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [createdHouseholdId, setCreatedHouseholdId] = useState<string | null>(null);
 
-  const handlePickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+  const handlePickImage = async (): Promise<void> => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setHouseholdPhoto(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setHouseholdPhoto(result.assets[0].uri);
+      }
+    } catch (error: unknown) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
     }
   };
 
-  const handleCreateHousehold = async () => {
+  const handleCreateHousehold = async (): Promise<void> => {
     if (!householdName.trim()) {
       Alert.alert('Error', 'Please enter a household name');
       return;
@@ -82,16 +89,17 @@ export default function OnboardingScreen() {
           ]
         );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Create household error:', error);
-      Alert.alert('Error', error.message || 'Failed to create household');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create household';
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSendInvitations = async () => {
-    const validEmails = inviteEmails.filter(email => email.trim() && email.includes('@'));
+  const handleSendInvitations = async (): Promise<void> => {
+    const validEmails = inviteEmails.filter((email: string) => email.trim() && email.includes('@'));
     
     if (validEmails.length === 0) {
       // Skip if no invitations
@@ -101,30 +109,31 @@ export default function OnboardingScreen() {
 
     setIsLoading(true);
     try {
-      const promises = validEmails.map(email => sendInvitation(email.trim()));
+      const promises = validEmails.map((email: string) => sendInvitation(email.trim()));
       const results = await Promise.all(promises);
       
-      const errors = results.filter(r => r.error);
+      const errors = results.filter((r: { error?: string }) => r.error);
       if (errors.length > 0) {
-        Alert.alert('Warning', `Some invitations failed to send: ${errors.map(e => e.error).join(', ')}`);
+        Alert.alert('Warning', `Some invitations failed to send: ${errors.map((e: { error?: string }) => e.error).join(', ')}`);
       } else {
         Alert.alert('Success', `Invitations sent to ${validEmails.length} member(s)`);
       }
       
       setStep(3);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Send invitations error:', error);
-      Alert.alert('Error', error.message || 'Failed to send invitations');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send invitations';
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSkipCalendar = () => {
+  const handleSkipCalendar = (): void => {
     router.replace('/(tabs)/(home)');
   };
 
-  const handleConnectCalendar = (provider: 'google' | 'apple') => {
+  const handleConnectCalendar = (provider: CalendarProvider): void => {
     Alert.alert(
       'Calendar Connection',
       `Connect ${provider === 'google' ? 'Google Calendar' : 'Apple iCloud'} via OAuth. This feature will be implemented with OAuth flow.`,
@@ -137,18 +146,18 @@ export default function OnboardingScreen() {
     );
   };
 
-  const addInviteEmailField = () => {
+  const addInviteEmailField = (): void => {
     setInviteEmails([...inviteEmails, '']);
   };
 
-  const updateInviteEmail = (index: number, value: string) => {
+  const updateInviteEmail = (index: number, value: string): void => {
     const newEmails = [...inviteEmails];
     newEmails[index] = value;
     setInviteEmails(newEmails);
   };
 
-  const removeInviteEmail = (index: number) => {
-    const newEmails = inviteEmails.filter((_, i) => i !== index);
+  const removeInviteEmail = (index: number): void => {
+    const newEmails = inviteEmails.filter((_: string, i: number) => i !== index);
     setInviteEmails(newEmails);
   };
 
@@ -244,14 +253,14 @@ export default function OnboardingScreen() {
         </View>
 
         <View style={styles.form}>
-          {inviteEmails.map((email, index) => (
+          {inviteEmails.map((email: string, index: number) => (
             <View key={index} style={styles.inviteRow}>
               <TextInput
                 style={[commonStyles.input, styles.inviteInput]}
                 placeholder="member@email.com"
                 placeholderTextColor={colors.textSecondary}
                 value={email}
-                onChangeText={(value) => updateInviteEmail(index, value)}
+                onChangeText={(value: string) => updateInviteEmail(index, value)}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!isLoading}
