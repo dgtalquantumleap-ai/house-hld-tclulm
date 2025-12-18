@@ -33,11 +33,16 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('Profile (Android): Starting sign out process');
               setIsSigningOut(true);
+              
               await signOut();
-              router.replace('/(auth)');
+              
+              console.log('Profile (Android): Sign out successful');
+              // The AuthContext will handle the navigation automatically
+              // via the auth state change listener in the layout components
             } catch (error: any) {
-              console.error('Sign out error:', error);
+              console.error('Profile (Android): Sign out error:', error);
               Alert.alert('Error', error.message || 'Failed to sign out');
             } finally {
               setIsSigningOut(false);
@@ -247,7 +252,7 @@ export default function ProfileScreen() {
         <Text style={styles.sectionTitle}>Account</Text>
         
         <TouchableOpacity
-          style={[buttonStyles.outline, styles.signOutButton]}
+          style={[buttonStyles.outline, styles.signOutButton, isSigningOut && styles.signOutButtonDisabled]}
           onPress={handleSignOut}
           disabled={isSigningOut}
         >
@@ -381,6 +386,9 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     marginTop: 8,
+  },
+  signOutButtonDisabled: {
+    opacity: 0.6,
   },
   footer: {
     alignItems: 'center',

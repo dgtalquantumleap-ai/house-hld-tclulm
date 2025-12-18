@@ -36,6 +36,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [householdMembers, setHouseholdMembers] = useState<any[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const unreadCount = getUnreadCount();
 
@@ -56,14 +57,19 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('Profile: Signing out...');
+              console.log('Profile (iOS): Starting sign out process');
+              setIsSigningOut(true);
+              
               await signOut();
-              console.log('Profile: Sign out successful, navigating to auth');
-              // The auth state change will automatically trigger navigation
-              // via the layout components, so we don't need to manually navigate
+              
+              console.log('Profile (iOS): Sign out successful');
+              // The AuthContext will handle the navigation automatically
+              // via the auth state change listener in the layout components
             } catch (error: any) {
-              console.error('Profile: Sign out error:', error);
+              console.error('Profile (iOS): Sign out error:', error);
               Alert.alert('Error', error.message || 'Failed to sign out');
+            } finally {
+              setIsSigningOut(false);
             }
           },
         },
@@ -286,8 +292,16 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-            <Text style={styles.signOutText}>Sign Out</Text>
+          <TouchableOpacity 
+            style={[styles.signOutButton, isSigningOut && styles.signOutButtonDisabled]} 
+            onPress={handleSignOut}
+            disabled={isSigningOut}
+          >
+            {isSigningOut ? (
+              <ActivityIndicator color={colors.card} />
+            ) : (
+              <Text style={styles.signOutText}>Sign Out</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
 
@@ -655,6 +669,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
+  },
+  signOutButtonDisabled: {
+    opacity: 0.6,
   },
   signOutText: {
     fontSize: 16,

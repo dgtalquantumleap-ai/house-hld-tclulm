@@ -78,13 +78,19 @@ export default function OnboardingScreen() {
 
       if (data) {
         setCreatedHouseholdId(data.id);
+        console.log('Household created successfully, redirecting to dashboard');
+        
+        // Show success message and redirect to dashboard immediately
         Alert.alert(
           'Success!',
           `Your household "${householdName}" has been created.`,
           [
             {
-              text: 'Continue',
-              onPress: () => setStep(1),
+              text: 'Go to Dashboard',
+              onPress: () => {
+                // Navigate to dashboard immediately
+                router.replace('/(tabs)/(home)');
+              },
             },
           ]
         );
@@ -237,7 +243,7 @@ export default function OnboardingScreen() {
             {isLoading ? (
               <ActivityIndicator color={colors.card} />
             ) : (
-              <Text style={buttonStyles.text}>Continue</Text>
+              <Text style={buttonStyles.text}>Create My Household</Text>
             )}
           </TouchableOpacity>
 
