@@ -54,13 +54,13 @@ export default function WelcomeScreen() {
             />
           </View>
           <Text style={styles.appName}>HouseHLD</Text>
-          <Text style={styles.tagline}>Managing family life, effortlessly</Text>
+          <Text style={styles.tagline}>Organize your home. Together.</Text>
         </View>
 
         {/* Marketing Hook */}
         <View style={styles.hookSection}>
           <Text style={styles.hookText}>
-            Create your household, coordinate calendars, plan meals, share tasks, and make decisions together — all in one place.
+            Create a shared household to manage schedules, tasks, meals, and shopping — all in one simple place for everyone at home.
           </Text>
         </View>
 
@@ -129,18 +129,18 @@ export default function WelcomeScreen() {
           style={[buttonStyles.primary, styles.button]}
           onPress={() => router.push('/(auth)/signup')}
         >
-          <Text style={buttonStyles.text}>Get Started</Text>
+          <Text style={buttonStyles.text}>Create My Household</Text>
         </TouchableOpacity>
         
         <TouchableOpacity
-          style={[buttonStyles.outline, styles.button]}
+          style={styles.secondaryButton}
           onPress={() => router.push('/(auth)/login')}
         >
-          <Text style={buttonStyles.outlineText}>Sign In</Text>
+          <Text style={styles.secondaryButtonText}>Already part of a household? Sign in</Text>
         </TouchableOpacity>
 
         <Text style={styles.footerText}>
-          Join thousands of families managing their homes better
+          Trusted by families, couples, and roommates to stay in sync at home.
         </Text>
       </View>
     </View>
@@ -233,6 +233,18 @@ const styles = StyleSheet.create({
   },
   button: {
     marginBottom: 16,
+  },
+  secondaryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   footerText: {
     fontSize: 14,

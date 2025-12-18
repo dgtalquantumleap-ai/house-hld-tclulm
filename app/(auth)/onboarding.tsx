@@ -28,7 +28,7 @@ export default function OnboardingScreen() {
   const { createHousehold, joinHousehold } = useHousehold();
   const { sendInvitation } = useInvitations();
   
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [householdName, setHouseholdName] = useState('');
   const [householdAddress, setHouseholdAddress] = useState('');
   const [householdPhoto, setHouseholdPhoto] = useState<string | null>(null);
@@ -84,7 +84,7 @@ export default function OnboardingScreen() {
           [
             {
               text: 'Continue',
-              onPress: () => setStep(2),
+              onPress: () => setStep(1),
             },
           ]
         );
@@ -103,7 +103,7 @@ export default function OnboardingScreen() {
     
     if (validEmails.length === 0) {
       // Skip if no invitations
-      setStep(3);
+      setStep(2);
       return;
     }
 
@@ -119,7 +119,7 @@ export default function OnboardingScreen() {
         Alert.alert('Success', `Invitations sent to ${validEmails.length} member(s)`);
       }
       
-      setStep(3);
+      setStep(2);
     } catch (error: unknown) {
       console.error('Send invitations error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to send invitations';
@@ -161,14 +161,22 @@ export default function OnboardingScreen() {
     setInviteEmails(newEmails);
   };
 
-  // Step 1: Create Household
-  if (step === 1) {
+  // Step 0: Intro Screen - One Home. Everyone Connected.
+  if (step === 0) {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Create your Household</Text>
+          <View style={styles.iconContainer}>
+            <IconSymbol
+              ios_icon_name="house.fill"
+              android_material_icon_name="home"
+              size={64}
+              color={colors.primary}
+            />
+          </View>
+          <Text style={styles.title}>One Home. Everyone Connected.</Text>
           <Text style={styles.subtitle}>
-            Let&apos;s get started by setting up your household
+            Create a shared household where everyone stays aligned — from daily tasks to important dates.
           </Text>
         </View>
 
@@ -229,7 +237,7 @@ export default function OnboardingScreen() {
             {isLoading ? (
               <ActivityIndicator color={colors.card} />
             ) : (
-              <Text style={buttonStyles.text}>Create Household</Text>
+              <Text style={buttonStyles.text}>Continue</Text>
             )}
           </TouchableOpacity>
 
@@ -241,14 +249,91 @@ export default function OnboardingScreen() {
     );
   }
 
+  // Step 1: Core Features
+  if (step === 1) {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Everything Your Household Needs</Text>
+          <Text style={styles.subtitle}>
+            Manage your home life with these essential tools
+          </Text>
+        </View>
+
+        <View style={styles.featuresList}>
+          <View style={styles.featureRow}>
+            <IconSymbol
+              ios_icon_name="calendar.circle.fill"
+              android_material_icon_name="event"
+              size={28}
+              color={colors.primary}
+            />
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>Shared calendars & reminders</Text>
+              <Text style={styles.featureDescription}>Keep everyone informed about important dates and events</Text>
+            </View>
+          </View>
+
+          <View style={styles.featureRow}>
+            <IconSymbol
+              ios_icon_name="checkmark.circle.fill"
+              android_material_icon_name="check-circle"
+              size={28}
+              color={colors.accent}
+            />
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>Tasks for everyone</Text>
+              <Text style={styles.featureDescription}>Assign and track household chores and responsibilities</Text>
+            </View>
+          </View>
+
+          <View style={styles.featureRow}>
+            <IconSymbol
+              ios_icon_name="fork.knife"
+              android_material_icon_name="restaurant"
+              size={28}
+              color={colors.secondary}
+            />
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>Meal planning & shopping lists</Text>
+              <Text style={styles.featureDescription}>Plan meals and create shared shopping lists</Text>
+            </View>
+          </View>
+
+          <View style={styles.featureRow}>
+            <IconSymbol
+              ios_icon_name="chart.bar.fill"
+              android_material_icon_name="poll"
+              size={28}
+              color={colors.primary}
+            />
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>Decisions made together</Text>
+              <Text style={styles.featureDescription}>Use polls to make household decisions collaboratively</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.form}>
+          <TouchableOpacity
+            style={[buttonStyles.primary, styles.button]}
+            onPress={() => setStep(2)}
+          >
+            <Text style={buttonStyles.text}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  }
+
   // Step 2: Invite Members
   if (step === 2) {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Invite Household Members</Text>
+          <Text style={styles.title}>Invite Who You Live With</Text>
           <Text style={styles.subtitle}>
-            Add family members or roommates to your household
+            Add family members, partners, or roommates so everyone sees what matters — without confusion or endless messages.
           </Text>
         </View>
 
@@ -302,13 +387,13 @@ export default function OnboardingScreen() {
             {isLoading ? (
               <ActivityIndicator color={colors.card} />
             ) : (
-              <Text style={buttonStyles.text}>Send Invitations</Text>
+              <Text style={buttonStyles.text}>Continue</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.skipButton}
-            onPress={() => setStep(3)}
+            onPress={handleSkipCalendar}
             disabled={isLoading}
           >
             <Text style={styles.skipText}>Skip for now</Text>
@@ -330,88 +415,7 @@ export default function OnboardingScreen() {
     );
   }
 
-  // Step 3: Calendar Connection
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Connect Your Calendar</Text>
-        <Text style={styles.subtitle}>
-          Sync your calendar to keep everyone on the same page (Optional)
-        </Text>
-      </View>
-
-      <View style={styles.form}>
-        <TouchableOpacity
-          style={styles.calendarButton}
-          onPress={() => handleConnectCalendar('google')}
-        >
-          <View style={styles.calendarIcon}>
-            <IconSymbol
-              ios_icon_name="calendar"
-              android_material_icon_name="event"
-              size={32}
-              color={colors.primary}
-            />
-          </View>
-          <View style={styles.calendarContent}>
-            <Text style={styles.calendarTitle}>Google Calendar</Text>
-            <Text style={styles.calendarSubtitle}>Sync with Google Calendar</Text>
-          </View>
-          <IconSymbol
-            ios_icon_name="chevron.right"
-            android_material_icon_name="chevron-right"
-            size={24}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.calendarButton}
-          onPress={() => handleConnectCalendar('apple')}
-        >
-          <View style={styles.calendarIcon}>
-            <IconSymbol
-              ios_icon_name="calendar"
-              android_material_icon_name="event"
-              size={32}
-              color={colors.accent}
-            />
-          </View>
-          <View style={styles.calendarContent}>
-            <Text style={styles.calendarTitle}>Apple iCloud</Text>
-            <Text style={styles.calendarSubtitle}>Sync with iCloud Calendar</Text>
-          </View>
-          <IconSymbol
-            ios_icon_name="chevron.right"
-            android_material_icon_name="chevron-right"
-            size={24}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[buttonStyles.secondary, styles.button]}
-          onPress={handleSkipCalendar}
-        >
-          <Text style={[buttonStyles.text, { color: colors.text }]}>
-            Skip - I&apos;ll do this later
-          </Text>
-        </TouchableOpacity>
-
-        <View style={styles.infoBox}>
-          <IconSymbol
-            ios_icon_name="lightbulb.fill"
-            android_material_icon_name="lightbulb"
-            size={20}
-            color={colors.accent}
-          />
-          <Text style={styles.infoText}>
-            You can always connect your calendar later from Settings. We&apos;ll remind you!
-          </Text>
-        </View>
-      </View>
-    </ScrollView>
-  );
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -426,17 +430,29 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 32,
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: `${colors.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   title: {
     fontSize: 32,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: 8,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
     lineHeight: 24,
+    textAlign: 'center',
   },
   form: {
     width: '100%',
@@ -485,6 +501,34 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  featuresList: {
+    marginBottom: 24,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)',
+    elevation: 2,
+  },
+  featureContent: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  featureDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   inviteRow: {
     flexDirection: 'row',
@@ -535,37 +579,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 12,
     lineHeight: 20,
-  },
-  calendarButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
-  },
-  calendarIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  calendarContent: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  calendarTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  calendarSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
   },
 });
