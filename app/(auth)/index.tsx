@@ -1,16 +1,34 @@
 
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { colors, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
-const { width } = Dimensions.get('window');
+const COLORS = {
+  primary: '#6366F1',
+  success: '#10B981',
+  warning: '#F59E0B',
+  error: '#EF4444',
+  dark: '#1F2937',
+  gray: '#6B7280',
+  lightGray: '#F9FAFB',
+  white: '#FFFFFF',
+  textDark: '#374151',
+};
+
+const features = [
+  { id: 1, iosIcon: 'calendar', androidIcon: 'event', label: 'Calendar', color: COLORS.primary },
+  { id: 2, iosIcon: 'checkmark.square.fill', androidIcon: 'check-box', label: 'Tasks', color: COLORS.success },
+  { id: 3, iosIcon: 'cart.fill', androidIcon: 'shopping-cart', label: 'Shopping', color: COLORS.warning },
+  { id: 4, iosIcon: 'fork.knife', androidIcon: 'restaurant', label: 'Meals', color: COLORS.error },
+];
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const { isAuthenticated, isLoading, user } = useAuth();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     console.log('WelcomeScreen: Auth state:', { isAuthenticated, isLoading, hasUser: !!user, householdId: user?.householdId });
@@ -30,6 +48,15 @@ export default function WelcomeScreen() {
     }
   }, [isAuthenticated, isLoading, user, user?.householdId]);
 
+  useEffect(() => {
+    // Fade-in animation on mount
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -41,116 +68,81 @@ export default function WelcomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        {/* Hero Section */}
-        <View style={styles.heroSection}>
-          <View style={styles.iconContainer}>
-            <IconSymbol
-              ios_icon_name="house.fill"
-              android_material_icon_name="home"
-              size={80}
-              color={colors.primary}
-            />
-          </View>
-          <Text style={styles.appName}>HouseHLD</Text>
-          <Text style={styles.tagline}>Organize your home. Together.</Text>
-        </View>
-
-        {/* Marketing Hook */}
-        <View style={styles.hookSection}>
-          <Text style={styles.hookText}>
-            Create a shared household to manage schedules, tasks, meals, and shopping — all in one simple place for everyone at home.
-          </Text>
-        </View>
-
-        {/* Features Grid */}
-        <View style={styles.featuresGrid}>
-          <View style={styles.featureItem}>
-            <IconSymbol
-              ios_icon_name="calendar.circle.fill"
-              android_material_icon_name="event"
-              size={32}
-              color={colors.accent}
-            />
-            <Text style={styles.featureText}>Shared Calendar</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <IconSymbol
-              ios_icon_name="checkmark.circle.fill"
-              android_material_icon_name="check-circle"
-              size={32}
-              color={colors.primary}
-            />
-            <Text style={styles.featureText}>Task Management</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <IconSymbol
-              ios_icon_name="cart.fill"
-              android_material_icon_name="shopping-cart"
-              size={32}
-              color={colors.secondary}
-            />
-            <Text style={styles.featureText}>Shopping Lists</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <IconSymbol
-              ios_icon_name="fork.knife"
-              android_material_icon_name="restaurant"
-              size={32}
-              color={colors.accent}
-            />
-            <Text style={styles.featureText}>Meal Planner</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <IconSymbol
-              ios_icon_name="chart.bar.fill"
-              android_material_icon_name="poll"
-              size={32}
-              color={colors.primary}
-            />
-            <Text style={styles.featureText}>Family Polls</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <IconSymbol
-              ios_icon_name="bell.fill"
-              android_material_icon_name="notifications"
-              size={32}
-              color={colors.secondary}
-            />
-            <Text style={styles.featureText}>Real-time Sync</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.actionSection}>
-        <TouchableOpacity
-          style={[buttonStyles.primary, styles.button]}
-          onPress={() => router.push('/(auth)/signup')}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <Animated.View style={[styles.animatedContainer, { opacity: fadeAnim }]}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={buttonStyles.text}>Create My Household</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => router.push('/(auth)/login')}
-        >
-          <Text style={styles.secondaryButtonText}>Already part of a household? Sign in</Text>
-        </TouchableOpacity>
+          {/* HEADER */}
+          <View style={styles.header}>
+            <View style={styles.iconCircle}>
+              <IconSymbol
+                ios_icon_name="house.fill"
+                android_material_icon_name="home"
+                size={40}
+                color={COLORS.white}
+              />
+            </View>
+            <Text style={styles.appName}>HouseHLD</Text>
+            <Text style={styles.tagline}>Managing family life, effortlessly</Text>
+          </View>
 
-        <Text style={styles.footerText}>
-          Trusted by families, couples, and roommates to stay in sync at home.
-        </Text>
-      </View>
-    </View>
+          {/* VALUE CARD */}
+          <View style={styles.valueCard}>
+            <Text style={styles.valueText}>
+              Create your household, <Text style={styles.boldText}>coordinate calendars</Text>, <Text style={styles.boldText}>plan meals</Text>, <Text style={styles.boldText}>share tasks</Text>, and <Text style={styles.boldText}>make decisions</Text> together — all in one place.
+            </Text>
+          </View>
+
+          {/* OPTIONAL SOCIAL PROOF */}
+          <Text style={styles.socialProof}>Join 10,000+ families managing homes better</Text>
+
+          {/* FEATURE GRID */}
+          <View style={styles.featureGrid}>
+            {features.map((feature, index) => (
+              <View key={index} style={styles.featureItem}>
+                <View style={[styles.featureIconContainer, { backgroundColor: `${feature.color}15` }]}>
+                  <IconSymbol
+                    ios_icon_name={feature.iosIcon}
+                    android_material_icon_name={feature.androidIcon}
+                    size={48}
+                    color={feature.color}
+                  />
+                </View>
+                <Text style={styles.featureLabel}>{feature.label}</Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* FIXED CTA SECTION */}
+        <View style={styles.ctaSection}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => router.push('/(auth)/signup')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.primaryButtonText}>Get Started</Text>
+          </TouchableOpacity>
+
+          <View style={styles.signInContainer}>
+            <Text style={styles.signInText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.push('/(auth)/login')} activeOpacity={0.7}>
+              <Text style={styles.signInLink}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Animated.View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: COLORS.lightGray,
   },
   loadingContainer: {
     flex: 1,
@@ -159,97 +151,156 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    color: colors.textSecondary,
+    color: COLORS.gray,
   },
-  content: {
+  animatedContainer: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 80,
   },
-  heroSection: {
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 180, // Space for fixed CTA section
+  },
+  
+  // HEADER
+  header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginTop: 48,
+    paddingHorizontal: 16,
   },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: `${colors.primary}15`,
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   appName: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: colors.text,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: COLORS.dark,
     marginBottom: 8,
-    letterSpacing: -1,
   },
   tagline: {
-    fontSize: 18,
-    color: colors.textSecondary,
+    fontSize: 16,
+    color: COLORS.gray,
     textAlign: 'center',
   },
-  hookSection: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
+
+  // VALUE CARD
+  valueCard: {
+    marginHorizontal: 16,
+    marginTop: 32,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
     padding: 24,
-    marginBottom: 32,
-    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 3,
   },
-  hookText: {
+  valueText: {
     fontSize: 16,
     lineHeight: 24,
-    color: colors.text,
+    color: COLORS.textDark,
     textAlign: 'center',
   },
-  featuresGrid: {
+  boldText: {
+    fontWeight: 'bold',
+  },
+
+  // SOCIAL PROOF
+  socialProof: {
+    fontSize: 14,
+    color: COLORS.gray,
+    textAlign: 'center',
+    marginTop: 24,
+    marginHorizontal: 16,
+  },
+
+  // FEATURE GRID
+  featureGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 16,
+    marginTop: 32,
+    paddingHorizontal: 16,
+    gap: 24,
   },
   featureItem: {
-    width: (width - 72) / 3,
+    width: '45%',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: colors.card,
+    marginBottom: 24,
+  },
+  featureIconContainer: {
+    width: 80,
+    height: 80,
     borderRadius: 16,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)',
-    elevation: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  featureText: {
-    fontSize: 12,
+  featureLabel: {
+    fontSize: 14,
+    color: COLORS.gray,
     fontWeight: '600',
-    color: colors.text,
-    marginTop: 8,
     textAlign: 'center',
   },
-  actionSection: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  button: {
-    marginBottom: 16,
-  },
-  secondaryButton: {
-    paddingVertical: 12,
+
+  // CTA SECTION
+  ctaSection: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.white,
     paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  primaryButton: {
+    width: '100%',
+    height: 56,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  secondaryButtonText: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
-    textAlign: 'center',
+  primaryButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.white,
   },
-  footerText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 8,
+  signInContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  signInText: {
+    fontSize: 16,
+    color: COLORS.gray,
+  },
+  signInLink: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontWeight: 'bold',
   },
 });
