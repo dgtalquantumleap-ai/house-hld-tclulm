@@ -21,6 +21,7 @@ interface AuthContextType {
   updateUser: (updates: Partial<User>) => Promise<void>;
   resendConfirmationEmail: (email: string) => Promise<{ error?: string }>;
   loadUserProfile: (session: Session) => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -211,6 +212,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshUserProfile = async () => {
+    try {
+      console.log('AuthContext: Refreshing user profile');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await loadUserProfile(session);
+      } else {
+        console.log('AuthContext: No session found, cannot refresh profile');
+      }
+    } catch (error) {
+      console.error('AuthContext: Error refreshing profile:', error);
+    }
+  };
+
   const signIn = async (email: string, password: string): Promise<{ error?: string }> => {
     try {
       console.log('AuthContext: Signing in user:', email);
@@ -365,24 +380,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('AuthContext: Signing out user');
       
-      // Sign out from Supabase first
+      // CRITICAL FIX: Clear user state FIRST for immediate UI feedback
+      setUser(null);
+      
+      // Then sign out from Supabase
       const { error } = await supabase.auth.signOut();
       
       if (error) {
         console.error('AuthContext: Sign out error:', error);
-        // Even if there's an error, clear the user state
-        setUser(null);
-        throw error;
+        // User state is already cleared, so UI will update regardless
+      } else {
+        console.log('AuthContext: Sign out successful');
       }
-      
-      // Clear user state after successful sign out
-      setUser(null);
-      console.log('AuthContext: Sign out successful');
     } catch (error) {
       console.error('AuthContext: Sign out exception:', error);
       // Ensure user state is cleared even on error
       setUser(null);
-      throw error;
     }
   };
 
@@ -472,6 +485,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updateUser,
     resendConfirmationEmail,
     loadUserProfile,
+    refreshUserProfile,
   };
 
   console.log('AuthContext: Rendering with state:', {

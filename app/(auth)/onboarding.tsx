@@ -24,7 +24,7 @@ type CalendarProvider = 'google' | 'apple';
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { updateUser, user } = useAuth();
+  const { updateUser, user, refreshUserProfile } = useAuth();
   const { createHousehold, joinHousehold } = useHousehold();
   const { sendInvitation } = useInvitations();
   
@@ -78,7 +78,12 @@ export default function OnboardingScreen() {
 
       if (data) {
         setCreatedHouseholdId(data.id);
-        console.log('Household created successfully, redirecting to dashboard');
+        console.log('Household created successfully, refreshing user profile');
+        
+        // CRITICAL FIX: Refresh user profile to get updated household_id
+        await refreshUserProfile();
+        
+        console.log('User profile refreshed, redirecting to dashboard');
         
         // Show success message and redirect to dashboard immediately
         Alert.alert(
@@ -251,6 +256,14 @@ export default function OnboardingScreen() {
             * You cannot proceed without completing this step
           </Text>
         </View>
+
+        {/* Loading Overlay */}
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Setting up household...</Text>
+          </View>
+        )}
       </ScrollView>
     );
   }
@@ -585,5 +598,22 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 12,
     lineHeight: 20,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.card,
+    marginTop: 16,
   },
 });
