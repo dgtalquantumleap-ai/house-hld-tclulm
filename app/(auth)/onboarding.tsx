@@ -168,7 +168,7 @@ export default function OnboardingScreen() {
   };
 
   const removeInviteEmail = (index: number): void => {
-    const newEmails = inviteEmails.filter((_: string, i: number) => i !== index);
+    const newEmails = inviteEmails.filter((_: any, i: number) => i !== index);
     setInviteEmails(newEmails);
   };
 
