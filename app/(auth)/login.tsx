@@ -16,6 +16,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
+// CONFIGURATION: Set these to true when OAuth providers are enabled in Supabase
+const GOOGLE_OAUTH_ENABLED = false;
+const APPLE_OAUTH_ENABLED = false;
+
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn, signInWithGoogle, signInWithApple, resendConfirmationEmail } = useAuth();
@@ -104,11 +108,30 @@ export default function LoginScreen() {
   };
 
   const handleGoogleLogin = async () => {
+    if (!GOOGLE_OAUTH_ENABLED) {
+      Alert.alert(
+        'Coming Soon',
+        'Google Sign In will be available soon. For now, please use email and password to sign in.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     setIsLoading(true);
     try {
       const result = await signInWithGoogle();
       if (result.error) {
-        Alert.alert('Google Sign In Failed', result.error);
+        // Check if it's a provider not enabled error
+        if (result.error.toLowerCase().includes('provider') && 
+            result.error.toLowerCase().includes('not enabled')) {
+          Alert.alert(
+            'Feature Not Available',
+            'Google Sign In is not currently enabled. Please use email and password to sign in.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert('Google Sign In Failed', result.error);
+        }
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to sign in with Google');
@@ -118,11 +141,30 @@ export default function LoginScreen() {
   };
 
   const handleAppleLogin = async () => {
+    if (!APPLE_OAUTH_ENABLED) {
+      Alert.alert(
+        'Coming Soon',
+        'Apple Sign In will be available soon. For now, please use email and password to sign in.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     setIsLoading(true);
     try {
       const result = await signInWithApple();
       if (result.error) {
-        Alert.alert('Apple Sign In Failed', result.error);
+        // Check if it's a provider not enabled error
+        if (result.error.toLowerCase().includes('provider') && 
+            result.error.toLowerCase().includes('not enabled')) {
+          Alert.alert(
+            'Feature Not Available',
+            'Apple Sign In is not currently enabled. Please use email and password to sign in.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert('Apple Sign In Failed', result.error);
+        }
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to sign in with Apple');
@@ -130,6 +172,9 @@ export default function LoginScreen() {
       setIsLoading(false);
     }
   };
+
+  // Show OAuth section only if at least one provider is enabled
+  const showOAuthSection = GOOGLE_OAUTH_ENABLED || APPLE_OAUTH_ENABLED;
 
   return (
     <KeyboardAvoidingView
@@ -198,42 +243,48 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
-          </View>
+          {showOAuthSection && (
+            <>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-          <TouchableOpacity
-            style={[styles.oauthButton, styles.googleButton, isLoading && styles.buttonDisabled]}
-            onPress={handleGoogleLogin}
-            disabled={isLoading}
-          >
-            <IconSymbol
-              ios_icon_name="g.circle.fill"
-              android_material_icon_name="login"
-              size={20}
-              color={colors.text}
-            />
-            <Text style={styles.oauthButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
+              {GOOGLE_OAUTH_ENABLED && (
+                <TouchableOpacity
+                  style={[styles.oauthButton, styles.googleButton, isLoading && styles.buttonDisabled]}
+                  onPress={handleGoogleLogin}
+                  disabled={isLoading}
+                >
+                  <IconSymbol
+                    ios_icon_name="g.circle.fill"
+                    android_material_icon_name="login"
+                    size={20}
+                    color={colors.text}
+                  />
+                  <Text style={styles.oauthButtonText}>Continue with Google</Text>
+                </TouchableOpacity>
+              )}
 
-          {Platform.OS === 'ios' && (
-            <TouchableOpacity
-              style={[styles.oauthButton, styles.appleButton, isLoading && styles.buttonDisabled]}
-              onPress={handleAppleLogin}
-              disabled={isLoading}
-            >
-              <IconSymbol
-                ios_icon_name="apple.logo"
-                android_material_icon_name="login"
-                size={20}
-                color={colors.card}
-              />
-              <Text style={[styles.oauthButtonText, styles.appleButtonText]}>
-                Continue with Apple
-              </Text>
-            </TouchableOpacity>
+              {APPLE_OAUTH_ENABLED && Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={[styles.oauthButton, styles.appleButton, isLoading && styles.buttonDisabled]}
+                  onPress={handleAppleLogin}
+                  disabled={isLoading}
+                >
+                  <IconSymbol
+                    ios_icon_name="apple.logo"
+                    android_material_icon_name="login"
+                    size={20}
+                    color={colors.card}
+                  />
+                  <Text style={[styles.oauthButtonText, styles.appleButtonText]}>
+                    Continue with Apple
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
 
           <TouchableOpacity
