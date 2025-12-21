@@ -50,10 +50,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "househld-production"
-      }
+      "router": {}
     },
     "owner": "househld",
     "privacy": "public",
