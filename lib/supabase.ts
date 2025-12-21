@@ -3,6 +3,7 @@ import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 // Get environment variables with fallback for development
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 
@@ -22,13 +23,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Log configuration (without exposing full key)
 console.log('Supabase URL:', supabaseUrl);
 console.log('Supabase Key configured:', supabaseAnonKey ? 'Yes' : 'No');
+console.log('Platform:', Platform.OS);
+
+// Use different storage based on platform
+const storage = Platform.OS === 'web' 
+  ? undefined // Use default localStorage on web
+  : AsyncStorage;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: storage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: Platform.OS === 'web', // Only detect session in URL on web
+    flowType: 'pkce', // Use PKCE flow for better security
   },
   realtime: {
     params: {
@@ -44,6 +52,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     headers: {
       // Add custom headers if needed
       'x-client-info': 'househld-app',
+      'x-client-platform': Platform.OS,
     },
   },
 });

@@ -2,6 +2,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 export default function AuthLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -34,7 +35,11 @@ export default function AuthLayout() {
       console.log('AuthLayout: User authenticated with household, redirecting to home');
       // Use replace to prevent back navigation to auth screens
       setTimeout(() => {
-        router.replace('/(tabs)/(home)');
+        try {
+          router.replace('/(tabs)/(home)');
+        } catch (error) {
+          console.error('AuthLayout: Error navigating to home:', error);
+        }
       }, 100);
       return;
     }
@@ -45,7 +50,11 @@ export default function AuthLayout() {
       // Only redirect if not already on onboarding
       if (segments[1] !== 'onboarding') {
         setTimeout(() => {
-          router.replace('/(auth)/onboarding');
+          try {
+            router.replace('/(auth)/onboarding');
+          } catch (error) {
+            console.error('AuthLayout: Error navigating to onboarding:', error);
+          }
         }, 100);
       }
       return;
@@ -55,13 +64,21 @@ export default function AuthLayout() {
     if (!isAuthenticated && segments[1] !== 'index' && segments[1] !== 'login' && segments[1] !== 'signup') {
       console.log('AuthLayout: Not authenticated, redirecting to welcome');
       setTimeout(() => {
-        router.replace('/(auth)/');
+        try {
+          router.replace('/(auth)/');
+        } catch (error) {
+          console.error('AuthLayout: Error navigating to welcome:', error);
+        }
       }, 100);
     }
   }, [isAuthenticated, isLoading, user?.householdId, segments, router]);
 
   if (isLoading) {
-    return null;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6366F1" />
+      </View>
+    );
   }
 
   return (
@@ -73,3 +90,12 @@ export default function AuthLayout() {
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+});

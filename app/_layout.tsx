@@ -6,7 +6,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme } from "react-native";
+import { useColorScheme, Platform } from "react-native";
 import {
   DarkTheme,
   DefaultTheme,
@@ -34,6 +34,12 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
+
+  useEffect(() => {
+    // Log platform information for debugging
+    console.log('RootLayout: Platform:', Platform.OS);
+    console.log('RootLayout: Color scheme:', colorScheme);
+  }, []);
 
   if (!loaded) {
     return null;

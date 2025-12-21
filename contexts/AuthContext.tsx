@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
 // Required for OAuth to work properly
 WebBrowser.maybeCompleteAuthSession();
@@ -43,67 +44,96 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     console.log('AuthContext: Initializing auth state');
     
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('AuthContext: Initial session:', session ? 'Found' : 'None');
-      if (session) {
-        loadUserProfile(session);
-      } else {
+    // Get initial session with error handling
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('AuthContext: Error getting initial session:', error);
+          setIsLoading(false);
+          return;
+        }
+        
+        console.log('AuthContext: Initial session:', session ? 'Found' : 'None');
+        if (session) {
+          await loadUserProfile(session);
+        } else {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('AuthContext: Exception during initialization:', error);
         setIsLoading(false);
       }
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('AuthContext: Auth state changed:', event, session ? 'Session exists' : 'No session');
       
-      if (event === 'SIGNED_IN' && session) {
-        console.log('AuthContext: User signed in, loading profile');
-        await loadUserProfile(session);
-      } else if (event === 'SIGNED_OUT') {
-        console.log('AuthContext: User signed out, clearing state');
-        setUser(null);
-        setIsLoading(false);
-      } else if (event === 'TOKEN_REFRESHED' && session) {
-        console.log('AuthContext: Token refreshed');
-        // Don't reload profile on token refresh if we already have user data
-        if (!user) {
+      try {
+        if (event === 'SIGNED_IN' && session) {
+          console.log('AuthContext: User signed in, loading profile');
           await loadUserProfile(session);
+        } else if (event === 'SIGNED_OUT') {
+          console.log('AuthContext: User signed out, clearing state');
+          setUser(null);
+          setIsLoading(false);
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          console.log('AuthContext: Token refreshed');
+          // Don't reload profile on token refresh if we already have user data
+          if (!user) {
+            await loadUserProfile(session);
+          }
+        } else if (session) {
+          // For other events with a session, load profile if we don't have user data
+          if (!user) {
+            await loadUserProfile(session);
+          }
+        } else {
+          // No session, clear user
+          setUser(null);
+          setIsLoading(false);
         }
-      } else if (session) {
-        // For other events with a session, load profile if we don't have user data
-        if (!user) {
-          await loadUserProfile(session);
-        }
-      } else {
-        // No session, clear user
-        setUser(null);
+      } catch (error) {
+        console.error('AuthContext: Error handling auth state change:', error);
         setIsLoading(false);
       }
     });
 
-    // Handle deep links for OAuth
-    const handleDeepLink = (event: { url: string }) => {
-      console.log('AuthContext: Deep link received:', event.url);
-      const url = Linking.parse(event.url);
-      if (url.queryParams?.access_token) {
-        console.log('AuthContext: OAuth callback detected');
-      }
-    };
+    // Handle deep links for OAuth (only on native platforms)
+    let subscription2: any = null;
+    if (Platform.OS !== 'web') {
+      const handleDeepLink = (event: { url: string }) => {
+        console.log('AuthContext: Deep link received:', event.url);
+        try {
+          const url = Linking.parse(event.url);
+          if (url.queryParams?.access_token) {
+            console.log('AuthContext: OAuth callback detected');
+          }
+        } catch (error) {
+          console.error('AuthContext: Error parsing deep link:', error);
+        }
+      };
 
-    const subscription2 = Linking.addEventListener('url', handleDeepLink);
+      subscription2 = Linking.addEventListener('url', handleDeepLink);
+    }
 
     return () => {
       console.log('AuthContext: Cleaning up subscriptions');
       subscription.unsubscribe();
-      subscription2.remove();
+      if (subscription2) {
+        subscription2.remove();
+      }
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }
     };
   }, []);
 
-  const loadUserProfile = async (session: Session, retryCount = 0) => {
+  const loadUserProfile = async (session: Session, retryCount = 0): Promise<void> => {
     // Prevent multiple simultaneous profile loads
     if (isLoadingProfileRef.current) {
       console.log('AuthContext: Profile load already in progress, skipping');
@@ -114,11 +144,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoadingProfileRef.current = true;
       console.log('AuthContext: Loading user profile for:', session.user.id, `(attempt ${retryCount + 1})`);
       
-      const { data, error } = await supabase
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile load timeout')), 10000);
+      });
+
+      const loadPromise = supabase
         .from('users')
         .select('id, name, email, phone, photo_url, role, household_id, created_at, updated_at')
         .eq('id', session.user.id)
         .single();
+
+      const { data, error } = await Promise.race([
+        loadPromise,
+        timeoutPromise
+      ]) as any;
 
       if (error) {
         console.error('AuthContext: Error loading user profile:', error);
@@ -215,7 +255,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUserProfile = async () => {
     try {
       console.log('AuthContext: Refreshing user profile');
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('AuthContext: Error getting session for refresh:', error);
+        return;
+      }
+      
       if (session) {
         await loadUserProfile(session);
       } else {
@@ -301,6 +347,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async (): Promise<{ error?: string }> => {
     try {
       console.log('AuthContext: Initiating Google OAuth');
+      
+      // Only use WebBrowser on native platforms
+      if (Platform.OS === 'web') {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
+
+        if (error) {
+          console.error('AuthContext: Google OAuth error:', error.message);
+          return { error: error.message };
+        }
+
+        return {};
+      }
+
       const redirectUrl = Linking.createURL('/');
       
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -340,6 +404,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithApple = async (): Promise<{ error?: string }> => {
     try {
       console.log('AuthContext: Initiating Apple OAuth');
+      
+      // Only use WebBrowser on native platforms
+      if (Platform.OS === 'web') {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'apple',
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
+
+        if (error) {
+          console.error('AuthContext: Apple OAuth error:', error.message);
+          return { error: error.message };
+        }
+
+        return {};
+      }
+
       const redirectUrl = Linking.createURL('/');
       
       const { data, error } = await supabase.auth.signInWithOAuth({
