@@ -18,6 +18,11 @@ import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Poll, PollOption, PollComment } from '@/types';
 
+interface PollOptionInput {
+  id: string;
+  value: string;
+}
+
 export default function PollsScreen() {
   const { user } = useAuth();
   const { polls, isLoading, createPoll, getPollOptions, vote, getUserVote, getPollComments, addComment, refreshPolls } = usePolls();
@@ -32,7 +37,10 @@ export default function PollsScreen() {
   // Create poll form
   const [newPollTitle, setNewPollTitle] = useState('');
   const [newPollDescription, setNewPollDescription] = useState('');
-  const [newPollOptions, setNewPollOptions] = useState(['', '']);
+  const [newPollOptions, setNewPollOptions] = useState<PollOptionInput[]>([
+    { id: '1', value: '' },
+    { id: '2', value: '' }
+  ]);
   const [newComment, setNewComment] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
@@ -48,7 +56,7 @@ export default function PollsScreen() {
       return;
     }
 
-    const validOptions = newPollOptions.filter(opt => opt.trim());
+    const validOptions = newPollOptions.filter(opt => opt.value.trim()).map(opt => opt.value);
     if (validOptions.length < 2) {
       Alert.alert('Error', 'Please provide at least 2 options');
       return;
@@ -65,7 +73,10 @@ export default function PollsScreen() {
       setShowCreateModal(false);
       setNewPollTitle('');
       setNewPollDescription('');
-      setNewPollOptions(['', '']);
+      setNewPollOptions([
+        { id: '1', value: '' },
+        { id: '2', value: '' }
+      ]);
     }
   };
 
@@ -106,18 +117,19 @@ export default function PollsScreen() {
   };
 
   const addPollOption = () => {
-    setNewPollOptions([...newPollOptions, '']);
+    const newId = Date.now().toString();
+    setNewPollOptions([...newPollOptions, { id: newId, value: '' }]);
   };
 
-  const updatePollOption = (index: number, value: string) => {
-    const updated = [...newPollOptions];
-    updated[index] = value;
-    setNewPollOptions(updated);
+  const updatePollOption = (id: string, value: string) => {
+    setNewPollOptions(newPollOptions.map(opt => 
+      opt.id === id ? { ...opt, value } : opt
+    ));
   };
 
-  const removePollOption = (index: number) => {
+  const removePollOption = (id: string) => {
     if (newPollOptions.length > 2) {
-      setNewPollOptions(newPollOptions.filter((_, i) => i !== index));
+      setNewPollOptions(newPollOptions.filter(opt => opt.id !== id));
     }
   };
 
@@ -243,19 +255,19 @@ export default function PollsScreen() {
             />
 
             <Text style={styles.label}>Options *</Text>
-            {newPollOptions.map((option, index) => (
-              <View key={index} style={styles.optionRow}>
+            {newPollOptions.map((option) => (
+              <View key={option.id} style={styles.optionRow}>
                 <TextInput
                   style={[commonStyles.input, styles.optionInput]}
-                  placeholder={`Option ${index + 1}`}
+                  placeholder={`Option ${newPollOptions.indexOf(option) + 1}`}
                   placeholderTextColor={colors.textSecondary}
-                  value={option}
-                  onChangeText={(value) => updatePollOption(index, value)}
+                  value={option.value}
+                  onChangeText={(value) => updatePollOption(option.id, value)}
                 />
                 {newPollOptions.length > 2 && (
                   <TouchableOpacity
                     style={styles.removeButton}
-                    onPress={() => removePollOption(index)}
+                    onPress={() => removePollOption(option.id)}
                   >
                     <IconSymbol
                       ios_icon_name="minus.circle.fill"

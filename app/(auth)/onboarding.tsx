@@ -22,6 +22,11 @@ import * as ImagePicker from 'expo-image-picker';
 
 type CalendarProvider = 'google' | 'apple';
 
+interface InviteEmail {
+  id: string;
+  value: string;
+}
+
 export default function OnboardingScreen() {
   const router = useRouter();
   const { updateUser, user, refreshUserProfile } = useAuth();
@@ -33,7 +38,7 @@ export default function OnboardingScreen() {
   const [householdAddress, setHouseholdAddress] = useState('');
   const [householdPhoto, setHouseholdPhoto] = useState<string | null>(null);
   const [primaryEmail, setPrimaryEmail] = useState(user?.email || '');
-  const [inviteEmails, setInviteEmails] = useState<string[]>(['']);
+  const [inviteEmails, setInviteEmails] = useState<InviteEmail[]>([{ id: '1', value: '' }]);
   const [isLoading, setIsLoading] = useState(false);
   const [createdHouseholdId, setCreatedHouseholdId] = useState<string | null>(null);
 
@@ -110,7 +115,7 @@ export default function OnboardingScreen() {
   };
 
   const handleSendInvitations = async (): Promise<void> => {
-    const validEmails = inviteEmails.filter((email: string) => email.trim() && email.includes('@'));
+    const validEmails = inviteEmails.filter((email: InviteEmail) => email.value.trim() && email.value.includes('@'));
     
     if (validEmails.length === 0) {
       // Skip if no invitations
@@ -120,7 +125,7 @@ export default function OnboardingScreen() {
 
     setIsLoading(true);
     try {
-      const promises = validEmails.map((email: string) => sendInvitation(email.trim()));
+      const promises = validEmails.map((email: InviteEmail) => sendInvitation(email.value.trim()));
       const results = await Promise.all(promises);
       
       const errors = results.filter((r: { error?: string }) => r.error);
@@ -158,18 +163,18 @@ export default function OnboardingScreen() {
   };
 
   const addInviteEmailField = (): void => {
-    setInviteEmails([...inviteEmails, '']);
+    const newId = Date.now().toString();
+    setInviteEmails([...inviteEmails, { id: newId, value: '' }]);
   };
 
-  const updateInviteEmail = (index: number, value: string): void => {
-    const newEmails = [...inviteEmails];
-    newEmails[index] = value;
-    setInviteEmails(newEmails);
+  const updateInviteEmail = (id: string, value: string): void => {
+    setInviteEmails(inviteEmails.map(email => 
+      email.id === id ? { ...email, value } : email
+    ));
   };
 
-  const removeInviteEmail = (index: number): void => {
-    const newEmails = inviteEmails.filter((_: any, i: number) => i !== index);
-    setInviteEmails(newEmails);
+  const removeInviteEmail = (id: string): void => {
+    setInviteEmails(inviteEmails.filter(email => email.id !== id));
   };
 
   // Step 0: Intro Screen - One Home. Everyone Connected.
@@ -357,14 +362,14 @@ export default function OnboardingScreen() {
         </View>
 
         <View style={styles.form}>
-          {inviteEmails.map((email: string, index: number) => (
-            <View key={index} style={styles.inviteRow}>
+          {inviteEmails.map((email: InviteEmail) => (
+            <View key={email.id} style={styles.inviteRow}>
               <TextInput
                 style={[commonStyles.input, styles.inviteInput]}
                 placeholder="member@email.com"
                 placeholderTextColor={colors.textSecondary}
-                value={email}
-                onChangeText={(value: string) => updateInviteEmail(index, value)}
+                value={email.value}
+                onChangeText={(value: string) => updateInviteEmail(email.id, value)}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!isLoading}
@@ -372,7 +377,7 @@ export default function OnboardingScreen() {
               {inviteEmails.length > 1 && (
                 <TouchableOpacity
                   style={styles.removeButton}
-                  onPress={() => removeInviteEmail(index)}
+                  onPress={() => removeInviteEmail(email.id)}
                 >
                   <IconSymbol
                     ios_icon_name="minus.circle.fill"

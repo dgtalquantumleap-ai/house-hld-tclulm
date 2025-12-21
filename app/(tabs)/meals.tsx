@@ -18,6 +18,12 @@ import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
+interface Ingredient {
+  id: string;
+  name: string;
+  quantity: string;
+}
+
 export default function MealsScreen() {
   const { user } = useAuth();
   const { meals, isLoading, createMeal, deleteMeal, refreshMeals } = useMeals();
@@ -33,7 +39,7 @@ export default function MealsScreen() {
   const [mealTime, setMealTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [ingredients, setIngredients] = useState<{ name: string; quantity: string }[]>([{ name: '', quantity: '' }]);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([{ id: '1', name: '', quantity: '' }]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -49,7 +55,10 @@ export default function MealsScreen() {
 
     setIsCreating(true);
     
-    const validIngredients = ingredients.filter(ing => ing.name.trim());
+    const validIngredients = ingredients.filter(ing => ing.name.trim()).map(ing => ({
+      name: ing.name,
+      quantity: ing.quantity
+    }));
     const timeString = `${mealTime.getHours().toString().padStart(2, '0')}:${mealTime.getMinutes().toString().padStart(2, '0')}`;
     
     const { error } = await createMeal(
@@ -77,22 +86,23 @@ export default function MealsScreen() {
     setMealDescription('');
     setMealDate(new Date());
     setMealTime(new Date());
-    setIngredients([{ name: '', quantity: '' }]);
+    setIngredients([{ id: '1', name: '', quantity: '' }]);
   };
 
   const addIngredient = () => {
-    setIngredients([...ingredients, { name: '', quantity: '' }]);
+    const newId = Date.now().toString();
+    setIngredients([...ingredients, { id: newId, name: '', quantity: '' }]);
   };
 
-  const updateIngredient = (index: number, field: 'name' | 'quantity', value: string) => {
-    const updated = [...ingredients];
-    updated[index][field] = value;
-    setIngredients(updated);
+  const updateIngredient = (id: string, field: 'name' | 'quantity', value: string) => {
+    setIngredients(ingredients.map(ing => 
+      ing.id === id ? { ...ing, [field]: value } : ing
+    ));
   };
 
-  const removeIngredient = (index: number) => {
+  const removeIngredient = (id: string) => {
     if (ingredients.length > 1) {
-      setIngredients(ingredients.filter((_, i) => i !== index));
+      setIngredients(ingredients.filter(ing => ing.id !== id));
     }
   };
 
@@ -312,26 +322,26 @@ export default function MealsScreen() {
               Ingredients will be automatically added to your shopping list
             </Text>
             
-            {ingredients.map((ingredient, index) => (
-              <View key={index} style={styles.ingredientRow}>
+            {ingredients.map((ingredient) => (
+              <View key={ingredient.id} style={styles.ingredientRow}>
                 <TextInput
                   style={[commonStyles.input, styles.ingredientName]}
                   placeholder="Ingredient name"
                   placeholderTextColor={colors.textSecondary}
                   value={ingredient.name}
-                  onChangeText={(value) => updateIngredient(index, 'name', value)}
+                  onChangeText={(value) => updateIngredient(ingredient.id, 'name', value)}
                 />
                 <TextInput
                   style={[commonStyles.input, styles.ingredientQuantity]}
                   placeholder="Qty"
                   placeholderTextColor={colors.textSecondary}
                   value={ingredient.quantity}
-                  onChangeText={(value) => updateIngredient(index, 'quantity', value)}
+                  onChangeText={(value) => updateIngredient(ingredient.id, 'quantity', value)}
                 />
                 {ingredients.length > 1 && (
                   <TouchableOpacity
                     style={styles.removeButton}
-                    onPress={() => removeIngredient(index)}
+                    onPress={() => removeIngredient(ingredient.id)}
                   >
                     <IconSymbol
                       ios_icon_name="minus.circle.fill"
