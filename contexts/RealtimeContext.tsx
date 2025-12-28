@@ -33,7 +33,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    console.log('[REALTIME] Initializing centralized subscriptions for household:', user.householdId);
+    console.log('[REALTIME] ========================================');
+    console.log('[REALTIME] Initializing centralized subscriptions');
+    console.log('[REALTIME] Household ID:', user.householdId);
+    console.log('[REALTIME] User ID:', user.id);
+    console.log('[REALTIME] ========================================');
     
     // Subscribe to all essential channels
     subscribeToTasks();
@@ -44,9 +48,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
     setIsConnected(true);
 
-    // Cleanup all subscriptions on unmount
+    // CRITICAL CLEANUP - This is the most important part
     return () => {
-      console.log('[REALTIME] Cleaning up all subscriptions');
+      console.log('[REALTIME] ========================================');
+      console.log('[REALTIME] CLEANING UP ALL SUBSCRIPTIONS');
+      console.log('[REALTIME] ========================================');
       
       Object.entries(channelsRef.current).forEach(([name, channel]) => {
         if (channel) {
@@ -58,12 +64,14 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       channelsRef.current = {};
       setActiveChannels(0);
       setIsConnected(false);
+      
+      console.log('[REALTIME] All subscriptions cleaned up successfully');
     };
   }, [user?.householdId, user?.id]);
 
   const subscribeToTasks = () => {
-    if (channelsRef.current.tasks?.state === 'subscribed') {
-      console.log('[SUB] Tasks: Already subscribed');
+    if (channelsRef.current.tasks) {
+      console.log('[SUB] Tasks: Already subscribed, skipping');
       return;
     }
 
@@ -85,15 +93,23 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           filter: `household_id=eq.${user?.householdId}`,
         },
         (payload) => {
-          console.log('[REALTIME] Tasks update:', payload.eventType);
+          console.log('[REALTIME] Tasks update:', payload.eventType, payload.new?.title || payload.old?.title);
           // Dispatch custom event for hooks to listen to
-          window.dispatchEvent(new CustomEvent('tasks-updated', { detail: payload }));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('tasks-updated', { detail: payload }));
+          }
         }
       )
       .subscribe((status) => {
         console.log('[SUB] Tasks status:', status);
         if (status === 'SUBSCRIBED') {
-          setActiveChannels(prev => prev + 1);
+          setActiveChannels(prev => {
+            const newCount = prev + 1;
+            console.log('[REALTIME] Active channels:', newCount);
+            return newCount;
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[SUB] Tasks subscription error');
         }
       });
 
@@ -101,8 +117,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const subscribeToShopping = () => {
-    if (channelsRef.current.shopping?.state === 'subscribed') {
-      console.log('[SUB] Shopping: Already subscribed');
+    if (channelsRef.current.shopping) {
+      console.log('[SUB] Shopping: Already subscribed, skipping');
       return;
     }
 
@@ -124,14 +140,22 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           filter: `household_id=eq.${user?.householdId}`,
         },
         (payload) => {
-          console.log('[REALTIME] Shopping update:', payload.eventType);
-          window.dispatchEvent(new CustomEvent('shopping-updated', { detail: payload }));
+          console.log('[REALTIME] Shopping update:', payload.eventType, payload.new?.name || payload.old?.name);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('shopping-updated', { detail: payload }));
+          }
         }
       )
       .subscribe((status) => {
         console.log('[SUB] Shopping status:', status);
         if (status === 'SUBSCRIBED') {
-          setActiveChannels(prev => prev + 1);
+          setActiveChannels(prev => {
+            const newCount = prev + 1;
+            console.log('[REALTIME] Active channels:', newCount);
+            return newCount;
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[SUB] Shopping subscription error');
         }
       });
 
@@ -139,8 +163,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const subscribeToEvents = () => {
-    if (channelsRef.current.events?.state === 'subscribed') {
-      console.log('[SUB] Events: Already subscribed');
+    if (channelsRef.current.events) {
+      console.log('[SUB] Events: Already subscribed, skipping');
       return;
     }
 
@@ -162,14 +186,22 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           filter: `household_id=eq.${user?.householdId}`,
         },
         (payload) => {
-          console.log('[REALTIME] Events update:', payload.eventType);
-          window.dispatchEvent(new CustomEvent('events-updated', { detail: payload }));
+          console.log('[REALTIME] Events update:', payload.eventType, payload.new?.title || payload.old?.title);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('events-updated', { detail: payload }));
+          }
         }
       )
       .subscribe((status) => {
         console.log('[SUB] Events status:', status);
         if (status === 'SUBSCRIBED') {
-          setActiveChannels(prev => prev + 1);
+          setActiveChannels(prev => {
+            const newCount = prev + 1;
+            console.log('[REALTIME] Active channels:', newCount);
+            return newCount;
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[SUB] Events subscription error');
         }
       });
 
@@ -179,8 +211,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const subscribeToNotifications = () => {
     if (!user?.id) return;
     
-    if (channelsRef.current.notifications?.state === 'subscribed') {
-      console.log('[SUB] Notifications: Already subscribed');
+    if (channelsRef.current.notifications) {
+      console.log('[SUB] Notifications: Already subscribed, skipping');
       return;
     }
 
@@ -203,13 +235,21 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         },
         (payload) => {
           console.log('[REALTIME] Notifications update:', payload.eventType);
-          window.dispatchEvent(new CustomEvent('notifications-updated', { detail: payload }));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('notifications-updated', { detail: payload }));
+          }
         }
       )
       .subscribe((status) => {
         console.log('[SUB] Notifications status:', status);
         if (status === 'SUBSCRIBED') {
-          setActiveChannels(prev => prev + 1);
+          setActiveChannels(prev => {
+            const newCount = prev + 1;
+            console.log('[REALTIME] Active channels:', newCount);
+            return newCount;
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[SUB] Notifications subscription error');
         }
       });
 
@@ -217,8 +257,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const subscribeToPolls = () => {
-    if (channelsRef.current.polls?.state === 'subscribed') {
-      console.log('[SUB] Polls: Already subscribed');
+    if (channelsRef.current.polls) {
+      console.log('[SUB] Polls: Already subscribed, skipping');
       return;
     }
 
@@ -240,14 +280,22 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           filter: `household_id=eq.${user?.householdId}`,
         },
         (payload) => {
-          console.log('[REALTIME] Polls update:', payload.eventType);
-          window.dispatchEvent(new CustomEvent('polls-updated', { detail: payload }));
+          console.log('[REALTIME] Polls update:', payload.eventType, payload.new?.title || payload.old?.title);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('polls-updated', { detail: payload }));
+          }
         }
       )
       .subscribe((status) => {
         console.log('[SUB] Polls status:', status);
         if (status === 'SUBSCRIBED') {
-          setActiveChannels(prev => prev + 1);
+          setActiveChannels(prev => {
+            const newCount = prev + 1;
+            console.log('[REALTIME] Active channels:', newCount);
+            return newCount;
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[SUB] Polls subscription error');
         }
       });
 
@@ -259,12 +307,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     activeChannels,
   };
 
-  console.log('[REALTIME] Provider state:', {
-    isConnected,
-    activeChannels,
-    hasUser: !!user,
-    householdId: user?.householdId || 'None',
-  });
+  console.log('[REALTIME] Provider render - Active channels:', activeChannels, 'Connected:', isConnected);
 
   return (
     <RealtimeContext.Provider value={contextValue}>
