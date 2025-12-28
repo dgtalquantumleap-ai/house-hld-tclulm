@@ -11,6 +11,7 @@ import {
   TextInput,
   Alert,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -40,6 +41,28 @@ export default function CalendarScreen() {
     setRefreshing(false);
   };
 
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setNewEventDate(selectedDate);
+    }
+  };
+
+  const onTimeChange = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(Platform.OS === 'ios');
+    if (selectedTime) {
+      setNewEventTime(selectedTime);
+    }
+  };
+
+  const formatDate = (d: Date) => d.toLocaleDateString('en-US');
+  
+  const formatTime = (t: Date) => t.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+
   const handleAddEvent = async () => {
     if (!newEventTitle.trim()) {
       Alert.alert('Error', 'Please enter an event title');
@@ -48,16 +71,16 @@ export default function CalendarScreen() {
 
     setIsSubmitting(true);
     try {
-      const timeString = `${newEventTime.getHours().toString().padStart(2, '0')}:${newEventTime.getMinutes().toString().padStart(2, '0')}`;
-      
-      const { error } = await createEvent({
+      const eventData = {
         title: newEventTitle,
         description: newEventDescription || undefined,
-        date: newEventDate.toISOString().split('T')[0],
-        time: timeString,
+        date: newEventDate.toISOString().split('T')[0], // YYYY-MM-DD
+        time: newEventTime.toTimeString().substring(0, 5), // HH:MM
         repeat: 'none',
         confirmationStatus: 'pending',
-      });
+      };
+
+      const { error } = await createEvent(eventData);
 
       if (error) {
         Alert.alert('Error', error);
@@ -381,10 +404,10 @@ export default function CalendarScreen() {
               onPress={() => setShowDatePicker(true)}
             >
               <Text style={styles.dateButtonText}>
-                {newEventDate.toLocaleDateString()}
+                {formatDate(newEventDate)}
               </Text>
               <IconSymbol
-                ios_icon_name="calendar"
+                ios_icon_name="calendar.circle"
                 android_material_icon_name="event"
                 size={20}
                 color={colors.primary}
@@ -395,13 +418,9 @@ export default function CalendarScreen() {
               <DateTimePicker
                 value={newEventDate}
                 mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(false);
-                  if (selectedDate) {
-                    setNewEventDate(selectedDate);
-                  }
-                }}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onDateChange}
+                minimumDate={new Date()}
               />
             )}
 
@@ -411,11 +430,11 @@ export default function CalendarScreen() {
               onPress={() => setShowTimePicker(true)}
             >
               <Text style={styles.dateButtonText}>
-                {newEventTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {formatTime(newEventTime)}
               </Text>
               <IconSymbol
                 ios_icon_name="clock"
-                android_material_icon_name="access-time"
+                android_material_icon_name="schedule"
                 size={20}
                 color={colors.primary}
               />
@@ -425,13 +444,8 @@ export default function CalendarScreen() {
               <DateTimePicker
                 value={newEventTime}
                 mode="time"
-                display="default"
-                onChange={(event, selectedTime) => {
-                  setShowTimePicker(false);
-                  if (selectedTime) {
-                    setNewEventTime(selectedTime);
-                  }
-                }}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onTimeChange}
               />
             )}
 
