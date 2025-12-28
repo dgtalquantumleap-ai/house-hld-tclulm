@@ -125,6 +125,9 @@ export function useEvents() {
       // Invalidate cache immediately for instant UI update
       realtimeCache.invalidate(`events_${user?.householdId}`);
       
+      // Reload events immediately
+      await loadEvents(true);
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('useEvents: Error creating event:', err);
@@ -157,6 +160,9 @@ export function useEvents() {
       // Invalidate cache immediately for instant UI update
       realtimeCache.invalidate(`events_${user?.householdId}`);
       
+      // Reload events immediately
+      await loadEvents(true);
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('useEvents: Error updating event:', err);
@@ -167,6 +173,7 @@ export function useEvents() {
   const deleteEvent = async (eventId: string) => {
     try {
       console.log('useEvents: Deleting event:', eventId);
+      
       const { error } = await supabase
         .from('household_events')
         .delete()
@@ -178,6 +185,9 @@ export function useEvents() {
       
       // Invalidate cache immediately for instant UI update
       realtimeCache.invalidate(`events_${user?.householdId}`);
+      
+      // Reload events immediately to update the UI
+      await loadEvents(true);
       
       return { error: null };
     } catch (err: any) {

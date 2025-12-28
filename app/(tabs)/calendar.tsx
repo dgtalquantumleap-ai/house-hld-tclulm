@@ -35,6 +35,7 @@ export default function CalendarScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -92,13 +93,15 @@ export default function CalendarScreen() {
         setNewEventTime(new Date());
         setShowAddModal(false);
         Alert.alert('Success', 'Event created! Other household members will be notified.');
+        // Refresh events list
+        await refreshEvents();
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteEvent = (eventId: string, eventTitle: string) => {
+  const handleDeleteEvent = async (eventId: string, eventTitle: string) => {
     const canDelete = user?.role === 'Adult' || user?.role === 'Parent';
     
     if (!canDelete) {
@@ -115,11 +118,14 @@ export default function CalendarScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            console.log('Deleting event:', eventId);
             const { error } = await deleteEvent(eventId);
             if (error) {
               Alert.alert('Error', error);
             } else {
               Alert.alert('Success', 'Event deleted successfully');
+              // Force refresh the events list
+              await refreshEvents();
             }
           },
         },
@@ -155,6 +161,7 @@ export default function CalendarScreen() {
       
       setShowConflictModal(false);
       setConflictEvent(null);
+      await refreshEvents();
     } catch (error: any) {
       Alert.alert('Error', error.message);
     }
@@ -169,6 +176,7 @@ export default function CalendarScreen() {
       Alert.alert('Error', error);
     } else {
       Alert.alert('Success', `Event ${status}`);
+      await refreshEvents();
     }
   };
 
@@ -258,6 +266,36 @@ export default function CalendarScreen() {
     );
   };
 
+  const handleDateClick = (day: number) => {
+    const clickedDate = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      day
+    );
+    setSelectedDate(clickedDate);
+    setNewEventDate(clickedDate);
+    
+    // Show events for this date or open add modal
+    const dayEvents = getEventsForDate(day);
+    if (dayEvents.length === 0 && canCreateEvent) {
+      setShowAddModal(true);
+    } else {
+      // Scroll to the events section for this date
+      Alert.alert(
+        'Events',
+        dayEvents.length > 0 
+          ? `${dayEvents.length} event(s) on this date. Scroll down to view.`
+          : 'No events on this date. Would you like to add one?',
+        dayEvents.length === 0 && canCreateEvent
+          ? [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Add Event', onPress: () => setShowAddModal(true) }
+            ]
+          : [{ text: 'OK' }]
+      );
+    }
+  };
+
   const previousMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
   };
@@ -344,10 +382,14 @@ export default function CalendarScreen() {
               return (
                 <View key={index} style={styles.calendarDay}>
                   {day ? (
-                    <View style={[
-                      styles.dayContent,
-                      isTodayDate && styles.todayContent
-                    ]}>
+                    <TouchableOpacity
+                      style={[
+                        styles.dayContent,
+                        isTodayDate && styles.todayContent
+                      ]}
+                      onPress={() => handleDateClick(day)}
+                      activeOpacity={0.7}
+                    >
                       <Text style={[
                         styles.dayNumber,
                         isTodayDate && styles.todayNumber
@@ -367,7 +409,7 @@ export default function CalendarScreen() {
                           ))}
                         </View>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   ) : (
                     <View style={styles.emptyDay} />
                   )}
@@ -433,6 +475,7 @@ export default function CalendarScreen() {
                         <TouchableOpacity
                           style={styles.deleteButton}
                           onPress={() => handleDeleteEvent(event.id, event.title)}
+                          activeOpacity={0.7}
                         >
                           <IconSymbol
                             ios_icon_name="trash"
