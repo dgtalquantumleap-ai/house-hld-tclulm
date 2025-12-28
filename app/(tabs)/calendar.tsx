@@ -33,7 +33,8 @@ export default function CalendarScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
+  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -97,7 +98,7 @@ export default function CalendarScreen() {
     }
   };
 
-  const handleDeleteEvent = (eventId: string) => {
+  const handleDeleteEvent = (eventId: string, eventTitle: string) => {
     const canDelete = user?.role === 'Adult' || user?.role === 'Parent';
     
     if (!canDelete) {
@@ -107,7 +108,7 @@ export default function CalendarScreen() {
 
     Alert.alert(
       'Delete Event',
-      'Are you sure you want to delete this event?',
+      `Are you sure you want to delete "${eventTitle}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -117,6 +118,8 @@ export default function CalendarScreen() {
             const { error } = await deleteEvent(eventId);
             if (error) {
               Alert.alert('Error', error);
+            } else {
+              Alert.alert('Success', 'Event deleted successfully');
             }
           },
         },
@@ -194,6 +197,7 @@ export default function CalendarScreen() {
   };
 
   const canCreateEvent = user?.role === 'Adult' || user?.role === 'Parent';
+  const canDeleteEvent = user?.role === 'Adult' || user?.role === 'Parent';
 
   // Group events by date
   const groupedEvents = events.reduce((acc, event) => {
@@ -204,6 +208,63 @@ export default function CalendarScreen() {
     acc[date].push(event);
     return acc;
   }, {} as Record<string, typeof events>);
+
+  // Calendar generation functions
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    return new Date(year, month, 1).getDay();
+  };
+
+  const generateCalendarDays = () => {
+    const daysInMonth = getDaysInMonth(currentMonth);
+    const firstDay = getFirstDayOfMonth(currentMonth);
+    const days = [];
+
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
+    }
+
+    // Add all days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(day);
+    }
+
+    return days;
+  };
+
+  const getEventsForDate = (day: number) => {
+    const dateStr = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      day
+    ).toLocaleDateString();
+    return groupedEvents[dateStr] || [];
+  };
+
+  const isToday = (day: number) => {
+    const today = new Date();
+    return (
+      day === today.getDate() &&
+      currentMonth.getMonth() === today.getMonth() &&
+      currentMonth.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const previousMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
 
   if (isLoading && !refreshing) {
     return (
@@ -218,32 +279,6 @@ export default function CalendarScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Calendar</Text>
         <View style={styles.headerActions}>
-          <View style={styles.viewToggle}>
-            <TouchableOpacity
-              style={[styles.viewButton, viewMode === 'daily' && styles.viewButtonActive]}
-              onPress={() => setViewMode('daily')}
-            >
-              <Text style={[styles.viewButtonText, viewMode === 'daily' && styles.viewButtonTextActive]}>
-                Day
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.viewButton, viewMode === 'weekly' && styles.viewButtonActive]}
-              onPress={() => setViewMode('weekly')}
-            >
-              <Text style={[styles.viewButtonText, viewMode === 'weekly' && styles.viewButtonTextActive]}>
-                Week
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.viewButton, viewMode === 'monthly' && styles.viewButtonActive]}
-              onPress={() => setViewMode('monthly')}
-            >
-              <Text style={[styles.viewButtonText, viewMode === 'monthly' && styles.viewButtonTextActive]}>
-                Month
-              </Text>
-            </TouchableOpacity>
-          </View>
           {canCreateEvent && (
             <TouchableOpacity 
               style={styles.addButton}
@@ -266,17 +301,83 @@ export default function CalendarScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Calendar Card */}
         <View style={styles.calendarCard}>
-          <Text style={styles.monthTitle}>
-            {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </Text>
-          <View style={styles.calendarGrid}>
-            <Text style={styles.calendarPlaceholder}>
-              📅 {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} view
+          <View style={styles.monthHeader}>
+            <TouchableOpacity onPress={previousMonth} style={styles.monthButton}>
+              <IconSymbol
+                ios_icon_name="chevron.left"
+                android_material_icon_name="chevron_left"
+                size={24}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+            <Text style={styles.monthTitle}>
+              {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </Text>
+            <TouchableOpacity onPress={nextMonth} style={styles.monthButton}>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
+                size={24}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Day labels */}
+          <View style={styles.weekDaysRow}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+              <Text key={index} style={styles.weekDayLabel}>
+                {day}
+              </Text>
+            ))}
+          </View>
+
+          {/* Calendar grid */}
+          <View style={styles.calendarGrid}>
+            {generateCalendarDays().map((day, index) => {
+              const dayEvents = day ? getEventsForDate(day) : [];
+              const hasEvents = dayEvents.length > 0;
+              const isTodayDate = day ? isToday(day) : false;
+
+              return (
+                <View key={index} style={styles.calendarDay}>
+                  {day ? (
+                    <View style={[
+                      styles.dayContent,
+                      isTodayDate && styles.todayContent
+                    ]}>
+                      <Text style={[
+                        styles.dayNumber,
+                        isTodayDate && styles.todayNumber
+                      ]}>
+                        {day}
+                      </Text>
+                      {hasEvents && (
+                        <View style={styles.eventDots}>
+                          {dayEvents.slice(0, 3).map((event, idx) => (
+                            <View
+                              key={idx}
+                              style={[
+                                styles.eventDot,
+                                { backgroundColor: getEventColor(event.repeat) }
+                              ]}
+                            />
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.emptyDay} />
+                  )}
+                </View>
+              );
+            })}
           </View>
         </View>
 
+        {/* Upcoming Events List */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Upcoming Events</Text>
           {Object.keys(groupedEvents).length > 0 ? (
@@ -284,11 +385,7 @@ export default function CalendarScreen() {
               <View key={date} style={styles.dateSection}>
                 <Text style={styles.dateHeader}>{date}</Text>
                 {dateEvents.map((event) => (
-                  <TouchableOpacity 
-                    key={event.id} 
-                    style={styles.eventCard}
-                    onLongPress={() => handleDeleteEvent(event.id)}
-                  >
+                  <View key={event.id} style={styles.eventCard}>
                     <View style={[styles.eventIndicator, { backgroundColor: getEventColor(event.repeat) }]} />
                     <View style={styles.eventContent}>
                       <View style={styles.eventHeader}>
@@ -330,16 +427,24 @@ export default function CalendarScreen() {
                           </TouchableOpacity>
                         </View>
                       )}
+
+                      {/* Delete Button */}
+                      {canDeleteEvent && (
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={() => handleDeleteEvent(event.id, event.title)}
+                        >
+                          <IconSymbol
+                            ios_icon_name="trash"
+                            android_material_icon_name="delete"
+                            size={20}
+                            color={colors.error}
+                          />
+                          <Text style={styles.deleteButtonText}>Delete</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
-                    <View style={styles.eventIcon}>
-                      <IconSymbol
-                        ios_icon_name="chevron.right"
-                        android_material_icon_name="chevron_right"
-                        size={20}
-                        color={colors.textSecondary}
-                      />
-                    </View>
-                  </TouchableOpacity>
+                  </View>
                 ))}
               </View>
             ))
@@ -520,6 +625,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 16,
@@ -528,36 +636,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: 12,
   },
   headerActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  viewToggle: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 4,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
-  },
-  viewButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  viewButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  viewButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  viewButtonTextActive: {
-    color: colors.card,
+    gap: 12,
   },
   addButton: {
     backgroundColor: colors.primary,
@@ -574,24 +657,75 @@ const styles = StyleSheet.create({
   calendarCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     marginBottom: 24,
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 2,
   },
-  monthTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
+  monthHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  calendarGrid: {
-    alignItems: 'center',
-    paddingVertical: 40,
+  monthButton: {
+    padding: 8,
   },
-  calendarPlaceholder: {
-    fontSize: 16,
+  monthTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  weekDaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 8,
+  },
+  weekDayLabel: {
+    width: '14.28%',
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.textSecondary,
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarDay: {
+    width: '14.28%',
+    aspectRatio: 1,
+    padding: 2,
+  },
+  dayContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  todayContent: {
+    backgroundColor: colors.primary,
+  },
+  emptyDay: {
+    flex: 1,
+  },
+  dayNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  todayNumber: {
+    color: colors.card,
+  },
+  eventDots: {
+    flexDirection: 'row',
+    gap: 2,
+    marginTop: 2,
+  },
+  eventDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   section: {
     marginBottom: 24,
@@ -691,8 +825,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.card,
   },
-  eventIcon: {
-    justifyContent: 'center',
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.error,
   },
   emptyState: {
     backgroundColor: colors.card,
