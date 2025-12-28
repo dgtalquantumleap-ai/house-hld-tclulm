@@ -3,31 +3,39 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Poll, PollOption, PollVote, PollComment } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import { realtimeCache } from '@/utils/realtimeCache';
 
 export function usePolls() {
   const { user } = useAuth();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.householdId) {
       loadPolls();
-      subscribeToPolls();
+      
+      // Listen to centralized realtime events
+      const handleUpdate = () => {
+        console.log('usePolls: Received realtime update event');
+        realtimeCache.throttle(
+          `polls_reload_${user?.householdId}`,
+          () => {
+            realtimeCache.invalidate(`polls_${user?.householdId}`);
+            loadPolls(true);
+          },
+          1500 // 1.5 second throttle
+        );
+      };
+
+      window.addEventListener('polls-updated', handleUpdate as EventListener);
+
+      return () => {
+        window.removeEventListener('polls-updated', handleUpdate as EventListener);
+      };
     } else {
       setIsLoading(false);
     }
-
-    return () => {
-      if (channelRef.current) {
-        console.log('usePolls: Unsubscribing from real-time updates');
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
   }, [user?.householdId]);
 
   const loadPolls = async (skipCache = false) => {
@@ -84,49 +92,6 @@ export function usePolls() {
       setIsLoading(false);
       loadingRef.current = false;
     }
-  };
-
-  const subscribeToPolls = () => {
-    // Prevent duplicate subscriptions
-    if (channelRef.current?.state === 'subscribed') {
-      console.log('usePolls: Already subscribed to real-time updates');
-      return;
-    }
-
-    console.log('usePolls: Subscribing to real-time poll updates');
-    
-    const channel = supabase
-      .channel(`household:${user?.householdId}:polls`, {
-        config: {
-          broadcast: { self: false },
-          private: false,
-        },
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'polls',
-          filter: `household_id=eq.${user?.householdId}`,
-        },
-        () => {
-          console.log('usePolls: Polls changed, reloading');
-          
-          // Throttle updates
-          realtimeCache.throttle(
-            `polls_reload_${user?.householdId}`,
-            () => {
-              realtimeCache.invalidate(`polls_${user?.householdId}`);
-              loadPolls(true);
-            },
-            1500 // 1.5 second throttle
-          );
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
   };
 
   const createPoll = async (title: string, description: string, options: string[], expiresAt?: string) => {

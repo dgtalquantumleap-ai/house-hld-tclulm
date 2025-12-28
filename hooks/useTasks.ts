@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useTasks() {
@@ -11,25 +10,33 @@ export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.householdId) {
       loadTasks();
-      subscribeToTasks();
+      
+      // Listen to centralized realtime events instead of creating own subscription
+      const handleUpdate = () => {
+        console.log('useTasks: Received realtime update event');
+        realtimeCache.throttle(
+          `tasks_reload_${user?.householdId}`,
+          () => {
+            realtimeCache.invalidate(`tasks_${user?.householdId}`);
+            loadTasks(true);
+          },
+          1000
+        );
+      };
+
+      window.addEventListener('tasks-updated', handleUpdate as EventListener);
+
+      return () => {
+        window.removeEventListener('tasks-updated', handleUpdate as EventListener);
+      };
     } else {
       setIsLoading(false);
     }
-
-    // Cleanup subscription on unmount
-    return () => {
-      if (channelRef.current) {
-        console.log('useTasks: Unsubscribing from real-time updates');
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
   }, [user?.householdId]);
 
   const loadTasks = async (skipCache = false) => {
@@ -89,54 +96,6 @@ export function useTasks() {
       setIsLoading(false);
       loadingRef.current = false;
     }
-  };
-
-  const subscribeToTasks = () => {
-    // Prevent duplicate subscriptions
-    if (channelRef.current?.state === 'subscribed') {
-      console.log('useTasks: Already subscribed to real-time updates');
-      return;
-    }
-
-    console.log('useTasks: Subscribing to real-time task updates');
-    
-    // Use dedicated topic for better performance
-    const channel = supabase
-      .channel(`household:${user?.householdId}:tasks`, {
-        config: {
-          broadcast: { self: false },
-          private: false, // Will be set to true once we add RLS policies
-        },
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-          filter: `household_id=eq.${user?.householdId}`,
-        },
-        (payload) => {
-          console.log('useTasks: Real-time update received:', payload.eventType);
-          
-          // Throttle updates to prevent excessive reloads
-          // Multiple rapid changes will be batched into a single reload after 1 second
-          realtimeCache.throttle(
-            `tasks_reload_${user?.householdId}`,
-            () => {
-              // Invalidate cache and reload
-              realtimeCache.invalidate(`tasks_${user?.householdId}`);
-              loadTasks(true);
-            },
-            1000 // 1 second throttle
-          );
-        }
-      )
-      .subscribe((status) => {
-        console.log('useTasks: Subscription status:', status);
-      });
-
-    channelRef.current = channel;
   };
 
   const createTask = async (taskData: Partial<Task>) => {

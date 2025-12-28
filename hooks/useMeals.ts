@@ -3,31 +3,23 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Meal, MealIngredient } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useMeals() {
   const { user } = useAuth();
   const [meals, setMeals] = useState<Meal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.householdId) {
       loadMeals();
-      subscribeToMeals();
     } else {
       setIsLoading(false);
     }
 
-    return () => {
-      if (channelRef.current) {
-        console.log('useMeals: Unsubscribing from real-time updates');
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
+    // No subscription - meals are less critical for realtime updates
+    // Users can manually refresh if needed
   }, [user?.householdId]);
 
   const loadMeals = async (skipCache = false) => {
@@ -85,49 +77,6 @@ export function useMeals() {
       setIsLoading(false);
       loadingRef.current = false;
     }
-  };
-
-  const subscribeToMeals = () => {
-    // Prevent duplicate subscriptions
-    if (channelRef.current?.state === 'subscribed') {
-      console.log('useMeals: Already subscribed to real-time updates');
-      return;
-    }
-
-    console.log('useMeals: Subscribing to real-time meal updates');
-    
-    const channel = supabase
-      .channel(`household:${user?.householdId}:meals`, {
-        config: {
-          broadcast: { self: false },
-          private: false,
-        },
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'meals',
-          filter: `household_id=eq.${user?.householdId}`,
-        },
-        () => {
-          console.log('useMeals: Meals changed, reloading');
-          
-          // Throttle updates
-          realtimeCache.throttle(
-            `meals_reload_${user?.householdId}`,
-            () => {
-              realtimeCache.invalidate(`meals_${user?.householdId}`);
-              loadMeals(true);
-            },
-            1500 // 1.5 second throttle
-          );
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
   };
 
   const createMeal = async (

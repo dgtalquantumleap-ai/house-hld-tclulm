@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { HouseholdEvent } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useEvents() {
@@ -11,25 +10,33 @@ export function useEvents() {
   const [events, setEvents] = useState<HouseholdEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.householdId) {
       loadEvents();
-      subscribeToEvents();
+      
+      // Listen to centralized realtime events
+      const handleUpdate = () => {
+        console.log('useEvents: Received realtime update event');
+        realtimeCache.throttle(
+          `events_reload_${user?.householdId}`,
+          () => {
+            realtimeCache.invalidate(`events_${user?.householdId}`);
+            loadEvents(true);
+          },
+          1000
+        );
+      };
+
+      window.addEventListener('events-updated', handleUpdate as EventListener);
+
+      return () => {
+        window.removeEventListener('events-updated', handleUpdate as EventListener);
+      };
     } else {
       setIsLoading(false);
     }
-
-    // Cleanup subscription on unmount
-    return () => {
-      if (channelRef.current) {
-        console.log('useEvents: Unsubscribing from real-time updates');
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
   }, [user?.householdId]);
 
   const loadEvents = async (skipCache = false) => {
@@ -89,53 +96,6 @@ export function useEvents() {
       setIsLoading(false);
       loadingRef.current = false;
     }
-  };
-
-  const subscribeToEvents = () => {
-    // Prevent duplicate subscriptions
-    if (channelRef.current?.state === 'subscribed') {
-      console.log('useEvents: Already subscribed to real-time updates');
-      return;
-    }
-
-    console.log('useEvents: Subscribing to real-time event updates');
-    
-    // Use dedicated topic for better performance
-    const channel = supabase
-      .channel(`household:${user?.householdId}:events`, {
-        config: {
-          broadcast: { self: false },
-          private: false, // Will be set to true once we add RLS policies
-        },
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'household_events',
-          filter: `household_id=eq.${user?.householdId}`,
-        },
-        (payload) => {
-          console.log('useEvents: Real-time update received:', payload.eventType);
-          
-          // Throttle updates to prevent excessive reloads
-          realtimeCache.throttle(
-            `events_reload_${user?.householdId}`,
-            () => {
-              // Invalidate cache and reload
-              realtimeCache.invalidate(`events_${user?.householdId}`);
-              loadEvents(true);
-            },
-            1000 // 1 second throttle
-          );
-        }
-      )
-      .subscribe((status) => {
-        console.log('useEvents: Subscription status:', status);
-      });
-
-    channelRef.current = channel;
   };
 
   const createEvent = async (eventData: Partial<HouseholdEvent>) => {

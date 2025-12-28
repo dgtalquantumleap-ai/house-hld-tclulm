@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ShoppingItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useShoppingList() {
@@ -11,25 +10,33 @@ export function useShoppingList() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.householdId) {
       loadItems();
-      subscribeToItems();
+      
+      // Listen to centralized realtime events
+      const handleUpdate = () => {
+        console.log('useShoppingList: Received realtime update event');
+        realtimeCache.throttle(
+          `shopping_reload_${user?.householdId}`,
+          () => {
+            realtimeCache.invalidate(`shopping_items_${user?.householdId}`);
+            loadItems(true);
+          },
+          1000
+        );
+      };
+
+      window.addEventListener('shopping-updated', handleUpdate as EventListener);
+
+      return () => {
+        window.removeEventListener('shopping-updated', handleUpdate as EventListener);
+      };
     } else {
       setIsLoading(false);
     }
-
-    // Cleanup subscription on unmount
-    return () => {
-      if (channelRef.current) {
-        console.log('useShoppingList: Unsubscribing from real-time updates');
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
   }, [user?.householdId]);
 
   const loadItems = async (skipCache = false) => {
@@ -88,53 +95,6 @@ export function useShoppingList() {
       setIsLoading(false);
       loadingRef.current = false;
     }
-  };
-
-  const subscribeToItems = () => {
-    // Prevent duplicate subscriptions
-    if (channelRef.current?.state === 'subscribed') {
-      console.log('useShoppingList: Already subscribed to real-time updates');
-      return;
-    }
-
-    console.log('useShoppingList: Subscribing to real-time updates');
-    
-    // Use dedicated topic for better performance
-    const channel = supabase
-      .channel(`household:${user?.householdId}:shopping`, {
-        config: {
-          broadcast: { self: false },
-          private: false, // Will be set to true once we add RLS policies
-        },
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'shopping_items',
-          filter: `household_id=eq.${user?.householdId}`,
-        },
-        (payload) => {
-          console.log('useShoppingList: Real-time update received:', payload.eventType);
-          
-          // Throttle updates to prevent excessive reloads
-          realtimeCache.throttle(
-            `shopping_reload_${user?.householdId}`,
-            () => {
-              // Invalidate cache and reload
-              realtimeCache.invalidate(`shopping_items_${user?.householdId}`);
-              loadItems(true);
-            },
-            1000 // 1 second throttle
-          );
-        }
-      )
-      .subscribe((status) => {
-        console.log('useShoppingList: Subscription status:', status);
-      });
-
-    channelRef.current = channel;
   };
 
   const addItem = async (name: string, quantity?: string, category?: string) => {

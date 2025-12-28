@@ -3,31 +3,22 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Expense } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 export function useExpenses() {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     if (user?.householdId) {
       loadExpenses();
-      subscribeToExpenses();
     } else {
       setIsLoading(false);
     }
 
-    // Cleanup subscription on unmount
-    return () => {
-      if (channelRef.current) {
-        console.log('useExpenses: Unsubscribing from real-time updates');
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
+    // No subscription - expenses are less critical for realtime updates
+    // Users can manually refresh if needed
   }, [user?.householdId]);
 
   const loadExpenses = async () => {
@@ -61,36 +52,6 @@ export function useExpenses() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const subscribeToExpenses = () => {
-    // Prevent duplicate subscriptions
-    if (channelRef.current) {
-      console.log('useExpenses: Already subscribed to real-time updates');
-      return;
-    }
-
-    console.log('useExpenses: Subscribing to real-time expense updates');
-    const channel = supabase
-      .channel(`expenses_changes_${user?.householdId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'expenses',
-          filter: `household_id=eq.${user?.householdId}`,
-        },
-        (payload) => {
-          console.log('useExpenses: Real-time update received:', payload.eventType);
-          loadExpenses();
-        }
-      )
-      .subscribe((status) => {
-        console.log('useExpenses: Subscription status:', status);
-      });
-
-    channelRef.current = channel;
   };
 
   const createExpense = async (expenseData: Partial<Expense>) => {

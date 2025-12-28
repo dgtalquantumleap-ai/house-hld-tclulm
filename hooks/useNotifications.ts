@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Notification } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useNotifications() {
@@ -11,25 +10,33 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const loadingRef = useRef(false);
 
   useEffect(() => {
     if (user?.id) {
       loadNotifications();
-      subscribeToNotifications();
+      
+      // Listen to centralized realtime events
+      const handleUpdate = () => {
+        console.log('useNotifications: Received realtime update event');
+        realtimeCache.throttle(
+          `notifications_reload_${user?.id}`,
+          () => {
+            realtimeCache.invalidate(`notifications_${user?.id}`);
+            loadNotifications(true);
+          },
+          2000 // 2 second throttle for notifications
+        );
+      };
+
+      window.addEventListener('notifications-updated', handleUpdate as EventListener);
+
+      return () => {
+        window.removeEventListener('notifications-updated', handleUpdate as EventListener);
+      };
     } else {
       setIsLoading(false);
     }
-
-    // Cleanup subscription on unmount
-    return () => {
-      if (channelRef.current) {
-        console.log('useNotifications: Unsubscribing from real-time updates');
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
   }, [user?.id]);
 
   const loadNotifications = async (skipCache = false) => {
@@ -88,54 +95,6 @@ export function useNotifications() {
       setIsLoading(false);
       loadingRef.current = false;
     }
-  };
-
-  const subscribeToNotifications = () => {
-    // Prevent duplicate subscriptions
-    if (channelRef.current?.state === 'subscribed') {
-      console.log('useNotifications: Already subscribed to real-time updates');
-      return;
-    }
-
-    console.log('useNotifications: Subscribing to real-time notification updates');
-    
-    // Use dedicated topic for better performance
-    const channel = supabase
-      .channel(`user:${user?.id}:notifications`, {
-        config: {
-          broadcast: { self: false },
-          private: false, // Will be set to true once we add RLS policies
-        },
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user?.id}`,
-        },
-        (payload) => {
-          console.log('useNotifications: Real-time update received:', payload.eventType);
-          
-          // Throttle updates to prevent excessive reloads
-          // Notifications can be slightly delayed, so use 2 second throttle
-          realtimeCache.throttle(
-            `notifications_reload_${user?.id}`,
-            () => {
-              // Invalidate cache and reload
-              realtimeCache.invalidate(`notifications_${user?.id}`);
-              loadNotifications(true);
-            },
-            2000 // 2 second throttle
-          );
-        }
-      )
-      .subscribe((status) => {
-        console.log('useNotifications: Subscription status:', status);
-      });
-
-    channelRef.current = channel;
   };
 
   const markAsRead = async (notificationId: string) => {
@@ -218,5 +177,6 @@ export function useNotifications() {
     deleteNotification,
     refreshNotifications: () => loadNotifications(true),
     getUnreadCount,
+    unreadCount: getUnreadCount(),
   };
 }
