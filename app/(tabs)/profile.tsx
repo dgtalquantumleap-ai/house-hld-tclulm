@@ -251,6 +251,29 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         
+        {__DEV__ && (
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/auth-debug' as any)}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol
+                ios_icon_name="wrench.fill"
+                android_material_icon_name="build"
+                size={24}
+                color="#F59E0B"
+              />
+              <Text style={styles.menuItemText}>Auth Debug (Dev Only)</Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={24}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        )}
+        
         <TouchableOpacity
           style={[buttonStyles.outline, styles.signOutButton, isSigningOut && styles.signOutButtonDisabled]}
           onPress={handleSignOut}

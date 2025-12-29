@@ -25,10 +25,40 @@ console.log('Supabase URL:', supabaseUrl);
 console.log('Supabase Key configured:', supabaseAnonKey ? 'Yes' : 'No');
 console.log('Platform:', Platform.OS);
 
+// Custom storage adapter with better error handling
+const customStorage = {
+  getItem: async (key: string) => {
+    try {
+      const value = await AsyncStorage.getItem(key);
+      console.log(`Storage GET [${key}]:`, value ? 'Found' : 'Not found');
+      return value;
+    } catch (error) {
+      console.error(`Storage GET error [${key}]:`, error);
+      return null;
+    }
+  },
+  setItem: async (key: string, value: string) => {
+    try {
+      await AsyncStorage.setItem(key, value);
+      console.log(`Storage SET [${key}]: Success`);
+    } catch (error) {
+      console.error(`Storage SET error [${key}]:`, error);
+    }
+  },
+  removeItem: async (key: string) => {
+    try {
+      await AsyncStorage.removeItem(key);
+      console.log(`Storage REMOVE [${key}]: Success`);
+    } catch (error) {
+      console.error(`Storage REMOVE error [${key}]:`, error);
+    }
+  },
+};
+
 // Use different storage based on platform
 const storage = Platform.OS === 'web' 
   ? undefined // Use default localStorage on web
-  : AsyncStorage;
+  : customStorage;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -37,11 +67,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web', // Only detect session in URL on web
     flowType: 'pkce', // Use PKCE flow for better security
+    // Add debug logging for auth events
+    debug: __DEV__,
   },
   realtime: {
     params: {
       // Enable info logging for debugging (can be changed to 'error' in production)
-      log_level: 'info',
+      log_level: __DEV__ ? 'info' : 'error',
       // Optimize reconnection timing
       reconnectAfterMs: 1000,
       // Heartbeat interval to keep connection alive
@@ -55,4 +87,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       'x-client-platform': Platform.OS,
     },
   },
+});
+
+// Add auth state change listener with better error handling
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Auth state changed:', event);
+  
+  if (event === 'SIGNED_OUT') {
+    console.log('User signed out, clearing storage');
+  } else if (event === 'TOKEN_REFRESHED') {
+    console.log('Token refreshed successfully');
+  } else if (event === 'SIGNED_IN') {
+    console.log('User signed in');
+  } else if (event === 'USER_UPDATED') {
+    console.log('User updated');
+  }
+  
+  // Log session status (without exposing tokens)
+  if (session) {
+    console.log('Session active for user:', session.user?.email);
+  } else {
+    console.log('No active session');
+  }
 });

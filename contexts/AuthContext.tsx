@@ -6,6 +6,7 @@ import { Session } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
+import { recoverFromAuthError, validateAndRecoverSession } from '@/utils/authRecovery';
 
 // Required for OAuth to work properly
 WebBrowser.maybeCompleteAuthSession();
@@ -51,6 +52,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (error) {
           console.error('AuthContext: Error getting initial session:', error);
+          
+          // Attempt to recover from auth errors
+          await recoverFromAuthError(error);
+          
           setIsLoading(false);
           return;
         }
@@ -282,6 +287,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('AuthContext: Sign in error:', error.message);
+        
+        // Attempt to recover from auth errors
+        await recoverFromAuthError(error);
+        
         return { error: error.message };
       }
 
@@ -295,6 +304,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return {};
     } catch (error: any) {
       console.error('AuthContext: Sign in exception:', error);
+      
+      // Attempt to recover from auth errors
+      await recoverFromAuthError(error);
+      
       return { error: error.message || 'Failed to sign in' };
     }
   };
