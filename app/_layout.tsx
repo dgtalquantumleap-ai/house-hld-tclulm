@@ -15,7 +15,7 @@ import {
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { RealtimeProvider } from "@/contexts/RealtimeContext";
+import { RealtimeProvider } from "@/contexts/RealtimeProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 SplashScreen.preventAutoHideAsync();
