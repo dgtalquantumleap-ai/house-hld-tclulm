@@ -2,7 +2,7 @@
 import "react-native-reanimated";
 import React, { useEffect } from "react";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -14,16 +14,87 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { RealtimeProvider } from "@/contexts/RealtimeProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { setupGlobalErrorHandlers } from "@/utils/globalErrorHandler";
 
 SplashScreen.preventAutoHideAsync();
 
-export const unstable_settings = {
-  initialRouteName: "welcome",
-};
+function RootNavigator() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    console.log('RootNavigator: Auth state changed', {
+      isLoading,
+      isAuthenticated,
+      hasUser: !!user,
+      householdId: user?.householdId,
+      currentSegments: segments.join('/'),
+    });
+
+    if (isLoading) {
+      console.log('RootNavigator: Still loading, waiting...');
+      return;
+    }
+
+    // Determine which group we're in
+    const inAuthGroup = segments[0] === '(auth)';
+    const inTabsGroup = segments[0] === '(tabs)';
+
+    console.log('RootNavigator: Current location', { inAuthGroup, inTabsGroup });
+
+    // Handle navigation based on auth state
+    if (!isAuthenticated) {
+      // Not authenticated - should be in auth group
+      if (!inAuthGroup) {
+        console.log('RootNavigator: Not authenticated, redirecting to auth');
+        setTimeout(() => {
+          router.replace('/(auth)/');
+        }, 100);
+      }
+    } else if (isAuthenticated && user) {
+      // Authenticated - check household status
+      if (!user.householdId) {
+        // No household - should be on onboarding
+        console.log('RootNavigator: No household, redirecting to onboarding');
+        setTimeout(() => {
+          router.replace('/(auth)/onboarding');
+        }, 100);
+      } else {
+        // Has household - should be in tabs
+        if (!inTabsGroup) {
+          console.log('RootNavigator: Has household, redirecting to home');
+          setTimeout(() => {
+            router.replace('/(tabs)/(home)/');
+          }, 100);
+        }
+      }
+    }
+  }, [isAuthenticated, isLoading, user?.householdId, segments]);
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen 
+        name="modal" 
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+        }}
+      />
+      <Stack.Screen 
+        name="household-setup" 
+        options={{
+          presentation: 'card',
+        }}
+      />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -86,12 +157,7 @@ export default function RootLayout() {
         <AuthProvider>
           <RealtimeProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="welcome" />
-                <Stack.Screen name="household-setup" />
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(tabs)" />
-              </Stack>
+              <RootNavigator />
               <SystemBars style="auto" />
             </GestureHandlerRootView>
           </RealtimeProvider>

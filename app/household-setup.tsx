@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,13 +28,33 @@ const COLORS = {
 
 export default function HouseholdSetupScreen() {
   const router = useRouter();
-  const { user, refreshUserProfile } = useAuth();
+  const { user, refreshUserProfile, isAuthenticated } = useAuth();
   const { createHousehold, joinHousehold } = useHousehold();
   
   const [step, setStep] = useState<'choice' | 'create' | 'join'>('choice');
   const [householdName, setHouseholdName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if user already has a household
+  useEffect(() => {
+    console.log('HouseholdSetup: Checking user state', {
+      isAuthenticated,
+      hasUser: !!user,
+      householdId: user?.householdId,
+    });
+
+    if (!isAuthenticated) {
+      console.log('HouseholdSetup: Not authenticated, redirecting to auth');
+      router.replace('/(auth)/');
+      return;
+    }
+
+    if (user?.householdId) {
+      console.log('HouseholdSetup: User already has household, redirecting to home');
+      router.replace('/(tabs)/(home)/');
+    }
+  }, [user?.householdId, isAuthenticated]);
 
   const handleCreateHousehold = async () => {
     if (!householdName.trim()) {
@@ -68,7 +88,7 @@ export default function HouseholdSetupScreen() {
             {
               text: 'Go to Home',
               onPress: () => {
-                router.replace('/(tabs)/(home)');
+                router.replace('/(tabs)/(home)/');
               },
             },
           ]
@@ -113,7 +133,7 @@ export default function HouseholdSetupScreen() {
           {
             text: 'Go to Home',
             onPress: () => {
-              router.replace('/(tabs)/(home)');
+              router.replace('/(tabs)/(home)/');
             },
           },
         ]
