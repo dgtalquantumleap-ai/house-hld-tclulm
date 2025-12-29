@@ -115,8 +115,8 @@ export default function WelcomeScreen() {
 
           {/* FEATURE GRID - All icons have labels */}
           <View style={styles.featureGrid}>
-            {features.map((feature, index) => (
-              <View key={index} style={styles.featureItem}>
+            {features.map((feature) => (
+              <View key={feature.id} style={styles.featureItem}>
                 <View style={[styles.featureIconContainer, { backgroundColor: `${feature.color}15` }]}>
                   <IconSymbol
                     ios_icon_name={feature.iosIcon}
