@@ -17,11 +17,13 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeData } from '@/contexts/RealtimeProvider';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function CalendarScreen() {
   const { user } = useAuth();
-  const { events, isLoading, createEvent, updateEvent, deleteEvent, refreshEvents } = useEvents();
+  const { events } = useRealtimeData();
+  const { createEvent, updateEvent, deleteEvent, refreshEvents } = useEvents();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [conflictEvent, setConflictEvent] = useState<any>(null);
@@ -310,14 +312,6 @@ export default function CalendarScreen() {
   const nextMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   };
-
-  if (isLoading && !refreshing) {
-    return (
-      <View style={[styles.container, commonStyles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>

@@ -16,10 +16,12 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useShoppingList } from '@/hooks/useShoppingList';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeData } from '@/contexts/RealtimeProvider';
 
 export default function ShoppingScreen() {
   const { user } = useAuth();
-  const { items, isLoading, addItem, togglePurchased, deleteItem, refreshItems } = useShoppingList();
+  const { shoppingItems } = useRealtimeData();
+  const { addItem, togglePurchased, deleteItem, refreshItems } = useShoppingList();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState('');
@@ -95,16 +97,8 @@ export default function ShoppingScreen() {
     );
   };
 
-  const neededItems = items.filter(i => !i.purchased);
-  const purchasedItems = items.filter(i => i.purchased);
-
-  if (isLoading && !refreshing) {
-    return (
-      <View style={[styles.container, commonStyles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  const neededItems = shoppingItems.filter(i => !i.purchased);
+  const purchasedItems = shoppingItems.filter(i => i.purchased);
 
   return (
     <View style={styles.container}>

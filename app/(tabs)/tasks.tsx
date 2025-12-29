@@ -16,10 +16,12 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useTasks } from '@/hooks/useTasks';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeData } from '@/contexts/RealtimeProvider';
 
 export default function TasksScreen() {
   const { user } = useAuth();
-  const { tasks, isLoading, createTask, updateTask, deleteTask, refreshTasks } = useTasks();
+  const { tasks } = useRealtimeData();
+  const { createTask, updateTask, deleteTask, refreshTasks } = useTasks();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
@@ -92,14 +94,6 @@ export default function TasksScreen() {
   const completedTasks = tasks.filter(t => t.status === 'completed');
 
   const canCreateTask = user?.role === 'Adult' || user?.role === 'Parent';
-
-  if (isLoading && !refreshing) {
-    return (
-      <View style={[styles.container, commonStyles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
