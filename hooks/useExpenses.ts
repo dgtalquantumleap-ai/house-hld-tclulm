@@ -1,58 +1,10 @@
 
-import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Expense } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function useExpenses() {
   const { user } = useAuth();
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (user?.householdId) {
-      loadExpenses();
-    } else {
-      setIsLoading(false);
-    }
-
-    // No subscription - expenses are less critical for realtime updates
-    // Users can manually refresh if needed
-  }, [user?.householdId]);
-
-  const loadExpenses = async () => {
-    try {
-      console.log('useExpenses: Loading expenses for household:', user?.householdId);
-      const { data, error } = await supabase
-        .from('expenses')
-        .select('id, household_id, title, amount, category, created_by_user_id, paid_by_user_id, date, created_at')
-        .eq('household_id', user?.householdId)
-        .order('date', { ascending: false });
-
-      if (error) throw error;
-
-      if (data) {
-        const mappedExpenses: Expense[] = data.map(expense => ({
-          id: expense.id,
-          householdId: expense.household_id,
-          title: expense.title,
-          amount: parseFloat(expense.amount),
-          category: expense.category,
-          createdByUserId: expense.created_by_user_id,
-          paidByUserId: expense.paid_by_user_id,
-          date: expense.date,
-          createdAt: expense.created_at,
-        }));
-        setExpenses(mappedExpenses);
-      }
-    } catch (err: any) {
-      console.error('useExpenses: Error loading expenses:', err);
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const createExpense = async (expenseData: Partial<Expense>) => {
     try {
@@ -128,28 +80,9 @@ export function useExpenses() {
     }
   };
 
-  const getTotalByCategory = () => {
-    const totals: { [key: string]: number } = {};
-    expenses.forEach(expense => {
-      const category = expense.category || 'Uncategorized';
-      totals[category] = (totals[category] || 0) + expense.amount;
-    });
-    return totals;
-  };
-
-  const getTotalAmount = () => {
-    return expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  };
-
   return {
-    expenses,
-    isLoading,
-    error,
     createExpense,
     updateExpense,
     deleteExpense,
-    refreshExpenses: loadExpenses,
-    getTotalByCategory,
-    getTotalAmount,
   };
 }

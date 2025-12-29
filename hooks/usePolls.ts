@@ -1,98 +1,10 @@
 
-import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Poll, PollOption, PollVote, PollComment } from '@/types';
+import { PollOption, PollComment } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { realtimeCache } from '@/utils/realtimeCache';
 
 export function usePolls() {
   const { user } = useAuth();
-  const [polls, setPolls] = useState<Poll[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const loadingRef = useRef(false);
-
-  useEffect(() => {
-    if (user?.householdId) {
-      loadPolls();
-      
-      // Listen to centralized realtime events
-      const handleUpdate = () => {
-        console.log('usePolls: Received realtime update event');
-        realtimeCache.throttle(
-          `polls_reload_${user?.householdId}`,
-          () => {
-            realtimeCache.invalidate(`polls_${user?.householdId}`);
-            loadPolls(true);
-          },
-          1500 // 1.5 second throttle
-        );
-      };
-
-      window.addEventListener('polls-updated', handleUpdate as EventListener);
-
-      return () => {
-        window.removeEventListener('polls-updated', handleUpdate as EventListener);
-      };
-    } else {
-      setIsLoading(false);
-    }
-  }, [user?.householdId]);
-
-  const loadPolls = async (skipCache = false) => {
-    // Prevent concurrent loads
-    if (loadingRef.current) {
-      console.log('usePolls: Load already in progress, skipping');
-      return;
-    }
-
-    try {
-      loadingRef.current = true;
-      const cacheKey = `polls_${user?.householdId}`;
-
-      // Check cache first (unless explicitly skipped)
-      if (!skipCache) {
-        const cached = realtimeCache.get<Poll[]>(cacheKey);
-        if (cached) {
-          setPolls(cached);
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      console.log('usePolls: Loading polls');
-      const { data, error } = await supabase
-        .from('polls')
-        .select('*')
-        .eq('household_id', user?.householdId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      if (data) {
-        const mappedPolls = data.map(poll => ({
-          id: poll.id,
-          householdId: poll.household_id,
-          title: poll.title,
-          description: poll.description,
-          createdByUserId: poll.created_by_user_id,
-          expiresAt: poll.expires_at,
-          isActive: poll.is_active,
-          createdAt: poll.created_at,
-          updatedAt: poll.updated_at,
-        }));
-        
-        setPolls(mappedPolls);
-        
-        // Cache the results for 5 seconds
-        realtimeCache.set(cacheKey, mappedPolls, 5000);
-      }
-    } catch (error) {
-      console.error('usePolls: Error loading polls:', error);
-    } finally {
-      setIsLoading(false);
-      loadingRef.current = false;
-    }
-  };
 
   const createPoll = async (title: string, description: string, options: string[], expiresAt?: string) => {
     try {
@@ -128,10 +40,6 @@ export function usePolls() {
       if (optionsError) throw optionsError;
 
       console.log('usePolls: Poll created successfully');
-      
-      // Invalidate cache
-      realtimeCache.invalidate(`polls_${user?.householdId}`);
-      
       return { data: pollData, error: null };
     } catch (error: any) {
       console.error('usePolls: Error creating poll:', error);
@@ -141,14 +49,6 @@ export function usePolls() {
 
   const getPollOptions = async (pollId: string): Promise<PollOption[]> => {
     try {
-      const cacheKey = `poll_options_${pollId}`;
-      
-      // Check cache first
-      const cached = realtimeCache.get<PollOption[]>(cacheKey);
-      if (cached) {
-        return cached;
-      }
-
       const { data, error } = await supabase
         .from('poll_options')
         .select('*')
@@ -164,9 +64,6 @@ export function usePolls() {
         voteCount: option.vote_count,
         createdAt: option.created_at,
       }));
-      
-      // Cache for 3 seconds
-      realtimeCache.set(cacheKey, options, 3000);
       
       return options;
     } catch (error) {
@@ -224,10 +121,6 @@ export function usePolls() {
       if (incrementError) console.error('Error incrementing vote count:', incrementError);
 
       console.log('usePolls: Vote recorded successfully');
-      
-      // Invalidate cache
-      realtimeCache.invalidate(`poll_options_${pollId}`);
-      
       return { error: null };
     } catch (error: any) {
       console.error('usePolls: Error voting:', error);
@@ -255,14 +148,6 @@ export function usePolls() {
 
   const getPollComments = async (pollId: string): Promise<PollComment[]> => {
     try {
-      const cacheKey = `poll_comments_${pollId}`;
-      
-      // Check cache first
-      const cached = realtimeCache.get<PollComment[]>(cacheKey);
-      if (cached) {
-        return cached;
-      }
-
       const { data, error } = await supabase
         .from('poll_comments')
         .select('*, users(id, name, photo_url)')
@@ -283,9 +168,6 @@ export function usePolls() {
           photoUrl: comment.users.photo_url,
         } : undefined,
       }));
-      
-      // Cache for 3 seconds
-      realtimeCache.set(cacheKey, comments, 3000);
       
       return comments;
     } catch (error) {
@@ -309,10 +191,6 @@ export function usePolls() {
       if (error) throw error;
 
       console.log('usePolls: Comment added successfully');
-      
-      // Invalidate cache
-      realtimeCache.invalidate(`poll_comments_${pollId}`);
-      
       return { error: null };
     } catch (error: any) {
       console.error('usePolls: Error adding comment:', error);
@@ -321,14 +199,11 @@ export function usePolls() {
   };
 
   return {
-    polls,
-    isLoading,
     createPoll,
     getPollOptions,
     vote,
     getUserVote,
     getPollComments,
     addComment,
-    refreshPolls: () => loadPolls(true),
   };
 }

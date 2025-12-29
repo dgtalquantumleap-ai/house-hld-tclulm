@@ -1,102 +1,10 @@
 
-import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useTasks() {
   const { user } = useAuth();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const loadingRef = useRef(false);
-
-  useEffect(() => {
-    if (user?.householdId) {
-      loadTasks();
-      
-      // Listen to centralized realtime events instead of creating own subscription
-      const handleUpdate = () => {
-        console.log('useTasks: Received realtime update event');
-        realtimeCache.throttle(
-          `tasks_reload_${user?.householdId}`,
-          () => {
-            realtimeCache.invalidate(`tasks_${user?.householdId}`);
-            loadTasks(true);
-          },
-          1000
-        );
-      };
-
-      window.addEventListener('tasks-updated', handleUpdate as EventListener);
-
-      return () => {
-        window.removeEventListener('tasks-updated', handleUpdate as EventListener);
-      };
-    } else {
-      setIsLoading(false);
-    }
-  }, [user?.householdId]);
-
-  const loadTasks = async (skipCache = false) => {
-    // Prevent concurrent loads
-    if (loadingRef.current) {
-      console.log('useTasks: Load already in progress, skipping');
-      return;
-    }
-
-    try {
-      loadingRef.current = true;
-      const cacheKey = `tasks_${user?.householdId}`;
-
-      // Check cache first (unless explicitly skipped)
-      if (!skipCache) {
-        const cached = realtimeCache.get<Task[]>(cacheKey);
-        if (cached) {
-          setTasks(cached);
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      console.log('useTasks: Loading tasks for household:', user?.householdId);
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('id, household_id, title, description, assigned_to_user_id, frequency, due_date, status, created_by_user_id, completed_at, created_at, updated_at')
-        .eq('household_id', user?.householdId)
-        .order('due_date', { ascending: true });
-
-      if (error) throw error;
-
-      if (data) {
-        const mappedTasks: Task[] = data.map(task => ({
-          id: task.id,
-          householdId: task.household_id,
-          title: task.title,
-          description: task.description,
-          assignedToUserId: task.assigned_to_user_id,
-          frequency: task.frequency,
-          dueDate: task.due_date,
-          status: task.status,
-          createdByUserId: task.created_by_user_id,
-          createdAt: task.created_at,
-          updatedAt: task.updated_at,
-        }));
-        
-        setTasks(mappedTasks);
-        
-        // Cache the results for 3 seconds
-        realtimeCache.set(cacheKey, mappedTasks, 3000);
-      }
-    } catch (err: any) {
-      console.error('useTasks: Error loading tasks:', err);
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-      loadingRef.current = false;
-    }
-  };
 
   const createTask = async (taskData: Partial<Task>) => {
     try {
@@ -121,10 +29,6 @@ export function useTasks() {
       if (error) throw error;
 
       console.log('useTasks: Task created successfully');
-      
-      // Invalidate cache immediately for instant UI update
-      realtimeCache.invalidate(`tasks_${user?.householdId}`);
-      
       return { data, error: null };
     } catch (err: any) {
       console.error('useTasks: Error creating task:', err);
@@ -159,10 +63,6 @@ export function useTasks() {
       if (error) throw error;
 
       console.log('useTasks: Task updated successfully');
-      
-      // Invalidate cache immediately for instant UI update
-      realtimeCache.invalidate(`tasks_${user?.householdId}`);
-      
       return { data, error: null };
     } catch (err: any) {
       console.error('useTasks: Error updating task:', err);
@@ -181,10 +81,6 @@ export function useTasks() {
       if (error) throw error;
 
       console.log('useTasks: Task deleted successfully');
-      
-      // Invalidate cache immediately for instant UI update
-      realtimeCache.invalidate(`tasks_${user?.householdId}`);
-      
       return { error: null };
     } catch (err: any) {
       console.error('useTasks: Error deleting task:', err);
@@ -193,12 +89,8 @@ export function useTasks() {
   };
 
   return {
-    tasks,
-    isLoading,
-    error,
     createTask,
     updateTask,
     deleteTask,
-    refreshTasks: () => loadTasks(true),
   };
 }
