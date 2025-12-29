@@ -12,7 +12,7 @@ const COLORS = {
   warning: '#F59E0B',
   error: '#EF4444',
   dark: '#1F2937',
-  gray: '#374151', // Updated for better contrast
+  gray: '#374151',
   lightGray: '#F9FAFB',
   white: '#FFFFFF',
   textDark: '#374151',
@@ -20,8 +20,8 @@ const COLORS = {
 
 const features = [
   { id: 1, iosIcon: 'calendar', androidIcon: 'event', label: 'Calendar', color: COLORS.primary },
-  { id: 2, iosIcon: 'checkmark.square.fill', androidIcon: 'check-box', label: 'Tasks', color: COLORS.success },
-  { id: 3, iosIcon: 'cart.fill', androidIcon: 'shopping-cart', label: 'Shopping', color: COLORS.warning },
+  { id: 2, iosIcon: 'checkmark.square.fill', androidIcon: 'check_box', label: 'Tasks', color: COLORS.success },
+  { id: 3, iosIcon: 'cart.fill', androidIcon: 'shopping_cart', label: 'Shopping', color: COLORS.warning },
   { id: 4, iosIcon: 'fork.knife', androidIcon: 'restaurant', label: 'Meals', color: COLORS.error },
 ];
 
@@ -39,11 +39,11 @@ export default function WelcomeScreen() {
       // If user has a household, go to home
       if (user.householdId) {
         console.log('WelcomeScreen: User has household, redirecting to home');
-        router.replace('/(tabs)/(home)');
+        router.replace('/(tabs)/(home)/');
       } else {
-        // If user doesn't have a household, go to onboarding
-        console.log('WelcomeScreen: User has no household, redirecting to onboarding');
-        router.replace('/(auth)/onboarding');
+        // If user doesn't have a household, go to household-setup
+        console.log('WelcomeScreen: User has no household, redirecting to household-setup');
+        router.replace('/household-setup');
       }
     }
   }, [isAuthenticated, isLoading, user, user?.householdId]);
@@ -113,7 +113,7 @@ export default function WelcomeScreen() {
             <Text style={styles.valueFooter}>All in one place.</Text>
           </View>
 
-          {/* SOCIAL PROOF - Updated to remove false claims */}
+          {/* SOCIAL PROOF */}
           <Text style={styles.socialProof}>Join families managing homes better</Text>
 
           {/* FEATURE GRID */}
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 180, // Space for fixed CTA section
+    paddingBottom: 180,
   },
   
   // HEADER
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // VALUE CARD - Updated with bullet points
+  // VALUE CARD
   valueCard: {
     marginHorizontal: 16,
     marginTop: 32,
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // SOCIAL PROOF - Updated text
+  // SOCIAL PROOF
   socialProof: {
     fontSize: 14,
     color: COLORS.gray,

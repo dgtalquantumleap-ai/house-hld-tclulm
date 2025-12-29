@@ -43,8 +43,9 @@ function RootNavigator() {
     // Determine which group we're in
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
+    const onHouseholdSetup = segments[0] === 'household-setup';
 
-    console.log('RootNavigator: Current location', { inAuthGroup, inTabsGroup });
+    console.log('RootNavigator: Current location', { inAuthGroup, inTabsGroup, onHouseholdSetup });
 
     // Handle navigation based on auth state
     if (!isAuthenticated) {
@@ -58,11 +59,13 @@ function RootNavigator() {
     } else if (isAuthenticated && user) {
       // Authenticated - check household status
       if (!user.householdId) {
-        // No household - should be on onboarding
-        console.log('RootNavigator: No household, redirecting to onboarding');
-        setTimeout(() => {
-          router.replace('/(auth)/onboarding');
-        }, 100);
+        // No household - should be on household-setup
+        if (!onHouseholdSetup) {
+          console.log('RootNavigator: No household, redirecting to household-setup');
+          setTimeout(() => {
+            router.replace('/household-setup');
+          }, 100);
+        }
       } else {
         // Has household - should be in tabs
         if (!inTabsGroup) {
@@ -80,16 +83,16 @@ function RootNavigator() {
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen 
+        name="household-setup" 
+        options={{
+          presentation: 'card',
+        }}
+      />
+      <Stack.Screen 
         name="modal" 
         options={{
           presentation: 'modal',
           animation: 'slide_from_bottom',
-        }}
-      />
-      <Stack.Screen 
-        name="household-setup" 
-        options={{
-          presentation: 'card',
         }}
       />
     </Stack>

@@ -31,7 +31,7 @@ export default function HouseholdSetupScreen() {
   const { user, refreshUserProfile, isAuthenticated } = useAuth();
   const { createHousehold, joinHousehold } = useHousehold();
   
-  const [step, setStep] = useState<'choice' | 'create' | 'join'>('choice');
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [householdName, setHouseholdName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -147,7 +147,7 @@ export default function HouseholdSetupScreen() {
   };
 
   // Step 1: Choice between Create or Join
-  if (step === 'choice') {
+  if (step === 1) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <ScrollView contentContainerStyle={styles.content}>
@@ -158,13 +158,13 @@ export default function HouseholdSetupScreen() {
 
           <TouchableOpacity 
             style={styles.optionCard} 
-            onPress={() => setStep('create')}
+            onPress={() => setStep(2)}
             activeOpacity={0.7}
           >
             <View style={[styles.iconContainer, { backgroundColor: `${COLORS.primary}15` }]}>
               <IconSymbol
                 ios_icon_name="plus.circle.fill"
-                android_material_icon_name="add-circle"
+                android_material_icon_name="add_circle"
                 size={48}
                 color={COLORS.primary}
               />
@@ -175,7 +175,7 @@ export default function HouseholdSetupScreen() {
 
           <TouchableOpacity 
             style={styles.optionCard} 
-            onPress={() => setStep('join')}
+            onPress={() => setStep(3)}
             activeOpacity={0.7}
           >
             <View style={[styles.iconContainer, { backgroundColor: `${COLORS.success}15` }]}>
@@ -195,17 +195,17 @@ export default function HouseholdSetupScreen() {
   }
 
   // Step 2: Create Household
-  if (step === 'create') {
+  if (step === 2) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <ScrollView contentContainerStyle={styles.content}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => setStep('choice')}
+            onPress={() => setStep(1)}
           >
             <IconSymbol
               ios_icon_name="chevron.left"
-              android_material_icon_name="arrow-back"
+              android_material_icon_name="arrow_back"
               size={24}
               color={COLORS.primary}
             />
@@ -267,11 +267,11 @@ export default function HouseholdSetupScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => setStep('choice')}
+          onPress={() => setStep(1)}
         >
           <IconSymbol
             ios_icon_name="chevron.left"
-            android_material_icon_name="arrow-back"
+            android_material_icon_name="arrow_back"
             size={24}
             color={COLORS.primary}
           />
@@ -282,7 +282,7 @@ export default function HouseholdSetupScreen() {
           <View style={[styles.iconContainer, { backgroundColor: `${COLORS.success}15` }]}>
             <IconSymbol
               ios_icon_name="key.fill"
-              android_material_icon_name="vpn-key"
+              android_material_icon_name="vpn_key"
               size={48}
               color={COLORS.success}
             />
@@ -295,7 +295,7 @@ export default function HouseholdSetupScreen() {
           <View style={styles.inputContainer}>
             <IconSymbol
               ios_icon_name="key"
-              android_material_icon_name="vpn-key"
+              android_material_icon_name="vpn_key"
               size={20}
               color={COLORS.gray}
             />
