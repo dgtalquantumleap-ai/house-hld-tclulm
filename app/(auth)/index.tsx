@@ -12,7 +12,7 @@ const COLORS = {
   warning: '#F59E0B',
   error: '#EF4444',
   dark: '#1F2937',
-  gray: '#6B7280',
+  gray: '#374151', // Updated for better contrast
   lightGray: '#F9FAFB',
   white: '#FFFFFF',
   textDark: '#374151',
@@ -91,13 +91,30 @@ export default function WelcomeScreen() {
 
           {/* VALUE CARD */}
           <View style={styles.valueCard}>
-            <Text style={styles.valueText}>
-              Create your household, <Text style={styles.boldText}>coordinate calendars</Text>, <Text style={styles.boldText}>plan meals</Text>, <Text style={styles.boldText}>share tasks</Text>, and <Text style={styles.boldText}>make decisions</Text> together — all in one place.
-            </Text>
+            <Text style={styles.valueHeading}>Create your household and:</Text>
+            <View style={styles.featureList}>
+              <View style={styles.featureListItem}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.featureListText}>Coordinate calendars</Text>
+              </View>
+              <View style={styles.featureListItem}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.featureListText}>Plan meals</Text>
+              </View>
+              <View style={styles.featureListItem}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.featureListText}>Share tasks</Text>
+              </View>
+              <View style={styles.featureListItem}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.featureListText}>Make decisions together</Text>
+              </View>
+            </View>
+            <Text style={styles.valueFooter}>All in one place.</Text>
           </View>
 
-          {/* OPTIONAL SOCIAL PROOF */}
-          <Text style={styles.socialProof}>Join 10,000+ families managing homes better</Text>
+          {/* SOCIAL PROOF - Updated to remove false claims */}
+          <Text style={styles.socialProof}>Join families managing homes better</Text>
 
           {/* FEATURE GRID */}
           <View style={styles.featureGrid}>
@@ -190,7 +207,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // VALUE CARD
+  // VALUE CARD - Updated with bullet points
   valueCard: {
     marginHorizontal: 16,
     marginTop: 32,
@@ -203,17 +220,44 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  valueText: {
+  valueHeading: {
     fontSize: 16,
     lineHeight: 24,
     color: COLORS.textDark,
-    textAlign: 'center',
+    fontWeight: '600',
+    marginBottom: 12,
   },
-  boldText: {
+  featureList: {
+    marginLeft: 8,
+  },
+  featureListItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  bullet: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: COLORS.primary,
     fontWeight: 'bold',
+    marginRight: 8,
+    width: 16,
+  },
+  featureListText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: COLORS.textDark,
+    flex: 1,
+  },
+  valueFooter: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: COLORS.textDark,
+    marginTop: 8,
+    fontWeight: '600',
   },
 
-  // SOCIAL PROOF
+  // SOCIAL PROOF - Updated text
   socialProof: {
     fontSize: 14,
     color: COLORS.gray,
