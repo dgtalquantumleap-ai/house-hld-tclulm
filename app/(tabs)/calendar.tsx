@@ -102,6 +102,8 @@ export default function CalendarScreen() {
   };
 
   const handleDeleteEvent = async (eventId: string, eventTitle: string) => {
+    console.log('handleDeleteEvent called with:', eventId, eventTitle);
+    
     const canDelete = user?.role === 'Adult' || user?.role === 'Parent';
     
     if (!canDelete) {
@@ -118,11 +120,13 @@ export default function CalendarScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            console.log('Deleting event:', eventId);
+            console.log('User confirmed deletion, deleting event:', eventId);
             const { error } = await deleteEvent(eventId);
             if (error) {
+              console.error('Delete error:', error);
               Alert.alert('Error', error);
             } else {
+              console.log('Event deleted successfully');
               Alert.alert('Success', 'Event deleted successfully');
               // Force refresh the events list
               await refreshEvents();
@@ -267,6 +271,7 @@ export default function CalendarScreen() {
   };
 
   const handleDateClick = (day: number) => {
+    console.log('Date clicked:', day);
     const clickedDate = new Date(
       currentMonth.getFullYear(),
       currentMonth.getMonth(),
@@ -277,6 +282,8 @@ export default function CalendarScreen() {
     
     // Show events for this date or open add modal
     const dayEvents = getEventsForDate(day);
+    console.log('Events for this date:', dayEvents.length);
+    
     if (dayEvents.length === 0 && canCreateEvent) {
       setShowAddModal(true);
     } else {
@@ -321,6 +328,7 @@ export default function CalendarScreen() {
             <TouchableOpacity 
               style={styles.addButton}
               onPress={() => setShowAddModal(true)}
+              activeOpacity={0.7}
             >
               <IconSymbol
                 ios_icon_name="plus"
@@ -342,7 +350,7 @@ export default function CalendarScreen() {
         {/* Calendar Card */}
         <View style={styles.calendarCard}>
           <View style={styles.monthHeader}>
-            <TouchableOpacity onPress={previousMonth} style={styles.monthButton}>
+            <TouchableOpacity onPress={previousMonth} style={styles.monthButton} activeOpacity={0.7}>
               <IconSymbol
                 ios_icon_name="chevron.left"
                 android_material_icon_name="chevron_left"
@@ -353,7 +361,7 @@ export default function CalendarScreen() {
             <Text style={styles.monthTitle}>
               {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </Text>
-            <TouchableOpacity onPress={nextMonth} style={styles.monthButton}>
+            <TouchableOpacity onPress={nextMonth} style={styles.monthButton} activeOpacity={0.7}>
               <IconSymbol
                 ios_icon_name="chevron.right"
                 android_material_icon_name="chevron_right"
@@ -388,7 +396,7 @@ export default function CalendarScreen() {
                         isTodayDate && styles.todayContent
                       ]}
                       onPress={() => handleDateClick(day)}
-                      activeOpacity={0.7}
+                      activeOpacity={0.6}
                     >
                       <Text style={[
                         styles.dayNumber,
@@ -458,24 +466,29 @@ export default function CalendarScreen() {
                           <TouchableOpacity
                             style={[styles.confirmButton, styles.confirmButtonAccept]}
                             onPress={() => handleConfirmEvent(event.id, 'confirmed')}
+                            activeOpacity={0.7}
                           >
                             <Text style={styles.confirmButtonText}>✓ Confirm</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={[styles.confirmButton, styles.confirmButtonDecline]}
                             onPress={() => handleConfirmEvent(event.id, 'declined')}
+                            activeOpacity={0.7}
                           >
                             <Text style={styles.confirmButtonText}>✗ Decline</Text>
                           </TouchableOpacity>
                         </View>
                       )}
 
-                      {/* Delete Button */}
+                      {/* Delete Button - FIXED */}
                       {canDeleteEvent && (
                         <TouchableOpacity
                           style={styles.deleteButton}
-                          onPress={() => handleDeleteEvent(event.id, event.title)}
-                          activeOpacity={0.7}
+                          onPress={() => {
+                            console.log('Delete button pressed for event:', event.id);
+                            handleDeleteEvent(event.id, event.title);
+                          }}
+                          activeOpacity={0.6}
                         >
                           <IconSymbol
                             ios_icon_name="trash"
@@ -515,7 +528,7 @@ export default function CalendarScreen() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+            <TouchableOpacity onPress={() => setShowAddModal(false)} activeOpacity={0.7}>
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Add Event</Text>
@@ -550,6 +563,7 @@ export default function CalendarScreen() {
             <TouchableOpacity
               style={styles.dateButton}
               onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.7}
             >
               <Text style={styles.dateButtonText}>
                 {formatDate(newEventDate)}
@@ -576,6 +590,7 @@ export default function CalendarScreen() {
             <TouchableOpacity
               style={styles.dateButton}
               onPress={() => setShowTimePicker(true)}
+              activeOpacity={0.7}
             >
               <Text style={styles.dateButtonText}>
                 {formatTime(newEventTime)}
@@ -601,6 +616,7 @@ export default function CalendarScreen() {
               style={[buttonStyles.primary, styles.createButton, isSubmitting && styles.buttonDisabled]}
               onPress={handleAddEvent}
               disabled={isSubmitting}
+              activeOpacity={0.7}
             >
               {isSubmitting ? (
                 <ActivityIndicator color={colors.card} />
@@ -629,6 +645,7 @@ export default function CalendarScreen() {
             <TouchableOpacity
               style={[buttonStyles.primary, styles.conflictButton]}
               onPress={() => resolveConflict('keep_mine')}
+              activeOpacity={0.7}
             >
               <Text style={buttonStyles.text}>Keep My Version</Text>
             </TouchableOpacity>
@@ -636,6 +653,7 @@ export default function CalendarScreen() {
             <TouchableOpacity
               style={[buttonStyles.secondary, styles.conflictButton]}
               onPress={() => resolveConflict('keep_partner')}
+              activeOpacity={0.7}
             >
               <Text style={[buttonStyles.text, { color: colors.primary }]}>
                 Keep Partner&apos;s Version
@@ -645,6 +663,7 @@ export default function CalendarScreen() {
             <TouchableOpacity
               style={[buttonStyles.outline, styles.conflictButton]}
               onPress={() => resolveConflict('merge')}
+              activeOpacity={0.7}
             >
               <Text style={buttonStyles.outlineText}>Merge Both</Text>
             </TouchableOpacity>
@@ -652,6 +671,7 @@ export default function CalendarScreen() {
             <TouchableOpacity
               style={styles.conflictCancelButton}
               onPress={() => setShowConflictModal(false)}
+              activeOpacity={0.7}
             >
               <Text style={styles.conflictCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -713,6 +733,10 @@ const styles = StyleSheet.create({
   },
   monthButton: {
     padding: 8,
+    minWidth: 40,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   monthTitle: {
     fontSize: 18,
@@ -745,6 +769,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
+    minHeight: 40,
   },
   todayContent: {
     backgroundColor: colors.primary,
@@ -873,11 +898,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     backgroundColor: colors.background,
     borderRadius: 8,
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.error,
+    minHeight: 44,
   },
   deleteButtonText: {
     fontSize: 14,
@@ -952,6 +980,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    minHeight: 56,
   },
   dateButtonText: {
     fontSize: 16,
