@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { colors } from '@/styles/commonStyles';
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -17,27 +17,90 @@ export default function TabLayout() {
   }
 
   return (
-    <NativeTabs tintColor={colors.primary}>
-      <NativeTabs.Trigger name="(home)">
-        <Icon sf={{ default: 'house', selected: 'house.fill' }} />
-        <Label>Home</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="tasks">
-        <Icon sf={{ default: 'checkmark.circle', selected: 'checkmark.circle.fill' }} />
-        <Label>Tasks</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="calendar">
-        <Icon sf={{ default: 'calendar', selected: 'calendar.circle.fill' }} />
-        <Label>Calendar</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="shopping">
-        <Icon sf={{ default: 'cart', selected: 'cart.fill' }} />
-        <Label>Shopping</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="profile">
-        <Icon sf={{ default: 'person', selected: 'person.fill' }} />
-        <Label>Profile</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: '#6366F1',
+        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 60,
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="(home)"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="tasks"
+        options={{
+          title: 'Tasks',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="checkmark-circle" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Calendar',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="shopping"
+        options={{
+          title: 'Shopping',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="cart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="expenses"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="polls"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="meals"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="household"
+        options={{
+          href: null,
+        }}
+      />
+    </Tabs>
   );
 }

@@ -1,61 +1,106 @@
 
 import React from 'react';
-import { Stack } from 'expo-router';
-import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
+import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Redirect } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function TabLayout() {
-  const tabs: TabBarItem[] = [
-    {
-      name: '(home)',
-      route: '/(tabs)/(home)/',
-      icon: 'home',
-      label: 'Home',
-    },
-    {
-      name: 'tasks',
-      route: '/(tabs)/tasks',
-      icon: 'check-circle',
-      label: 'Tasks',
-    },
-    {
-      name: 'calendar',
-      route: '/(tabs)/calendar',
-      icon: 'event',
-      label: 'Calendar',
-    },
-    {
-      name: 'polls',
-      route: '/(tabs)/polls',
-      icon: 'poll',
-      label: 'Polls',
-    },
-    {
-      name: 'profile',
-      route: '/(tabs)/profile',
-      icon: 'person',
-      label: 'Profile',
-    },
-  ];
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)" />;
+  }
 
   return (
-    <React.Fragment>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: 'none',
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: '#6366F1',
+        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 60,
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="(home)"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" size={size} color={color} />
+          ),
         }}
-      >
-        <Stack.Screen name="(home)" />
-        <Stack.Screen name="tasks" />
-        <Stack.Screen name="calendar" />
-        <Stack.Screen name="shopping" />
-        <Stack.Screen name="expenses" />
-        <Stack.Screen name="polls" />
-        <Stack.Screen name="meals" />
-        <Stack.Screen name="household" />
-        <Stack.Screen name="profile" />
-      </Stack>
-      <FloatingTabBar tabs={tabs} />
-    </React.Fragment>
+      />
+      <Tabs.Screen
+        name="tasks"
+        options={{
+          title: 'Tasks',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="checkmark-circle" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Calendar',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="shopping"
+        options={{
+          title: 'Shopping',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="cart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="expenses"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="polls"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="meals"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="household"
+        options={{
+          href: null,
+        }}
+      />
+    </Tabs>
   );
 }
