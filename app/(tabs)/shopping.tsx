@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { Ionicons } from '@expo/vector-icons';
 import { useShoppingList } from '@/hooks/useShoppingList';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRealtimeData } from '@/contexts/RealtimeProvider';
@@ -156,7 +157,9 @@ export default function ShoppingScreen() {
             ))
           ) : (
             <View style={styles.emptyState}>
+              <Ionicons name="cart-outline" size={64} color="#D1D5DB" />
               <Text style={styles.emptyText}>No items needed</Text>
+              <Text style={styles.emptySubtext}>Tap + to add shopping items</Text>
             </View>
           )}
         </View>
@@ -192,68 +195,74 @@ export default function ShoppingScreen() {
       <Modal
         visible={showAddModal}
         animationType="slide"
-        transparent
+        transparent={true}
         onRequestClose={() => setShowAddModal(false)}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <TouchableOpacity
           style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowAddModal(false)}
         >
-          <View style={styles.modalContent}>
-            <ScrollView 
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.scrollContent}
-            >
-              <Text style={styles.modalTitle}>Add Shopping Item</Text>
-              <TextInput
-                style={commonStyles.input}
-                placeholder="Item name"
-                placeholderTextColor={colors.textSecondary}
-                value={newItemName}
-                onChangeText={setNewItemName}
-                autoFocus
-                editable={!isSubmitting}
-              />
-              <TextInput
-                style={commonStyles.input}
-                placeholder="Quantity (optional)"
-                placeholderTextColor={colors.textSecondary}
-                value={newItemQuantity}
-                onChangeText={setNewItemQuantity}
-                editable={!isSubmitting}
-              />
-              <TextInput
-                style={commonStyles.input}
-                placeholder="Category (optional)"
-                placeholderTextColor={colors.textSecondary}
-                value={newItemCategory}
-                onChangeText={setNewItemCategory}
-                editable={!isSubmitting}
-              />
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[buttonStyles.outline, styles.modalButton]}
-                  onPress={() => setShowAddModal(false)}
-                  disabled={isSubmitting}
-                >
-                  <Text style={buttonStyles.outlineText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[buttonStyles.primary, styles.modalButton]}
-                  onPress={handleAddItem}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator color={colors.card} />
-                  ) : (
-                    <Text style={buttonStyles.text}>Add</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={styles.modalContent}
+          >
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+              <ScrollView 
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={styles.modalTitle}>Add Shopping Item</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Item name"
+                  placeholderTextColor={colors.textSecondary}
+                  value={newItemName}
+                  onChangeText={setNewItemName}
+                  autoFocus
+                  editable={!isSubmitting}
+                />
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Quantity (optional)"
+                  placeholderTextColor={colors.textSecondary}
+                  value={newItemQuantity}
+                  onChangeText={setNewItemQuantity}
+                  editable={!isSubmitting}
+                />
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Category (optional)"
+                  placeholderTextColor={colors.textSecondary}
+                  value={newItemCategory}
+                  onChangeText={setNewItemCategory}
+                  editable={!isSubmitting}
+                />
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[buttonStyles.outline, styles.modalButton]}
+                    onPress={() => setShowAddModal(false)}
+                    disabled={isSubmitting}
+                  >
+                    <Text style={buttonStyles.outlineText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[buttonStyles.primary, styles.modalButton]}
+                    onPress={handleAddItem}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator color={colors.card} />
+                    ) : (
+                      <Text style={buttonStyles.text}>Add</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -336,31 +345,33 @@ const styles = StyleSheet.create({
     color: colors.secondary,
   },
   emptyState: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 32,
     alignItems: 'center',
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
+    justifyContent: 'center',
+    padding: 40,
+    marginTop: 60,
   },
   emptyText: {
-    fontSize: 16,
-    color: colors.textSecondary,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 8,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-  },
-  scrollContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 24,
-    paddingBottom: 40,
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 24,

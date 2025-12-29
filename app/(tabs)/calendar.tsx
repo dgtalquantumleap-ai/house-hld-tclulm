@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRealtimeData } from '@/contexts/RealtimeProvider';
@@ -501,134 +502,138 @@ export default function CalendarScreen() {
             ))
           ) : (
             <View style={styles.emptyState}>
-              <IconSymbol
-                ios_icon_name="calendar"
-                android_material_icon_name="event"
-                size={64}
-                color={colors.textSecondary}
-              />
+              <Ionicons name="calendar-outline" size={64} color="#D1D5DB" />
               <Text style={styles.emptyText}>No upcoming events</Text>
-              <Text style={styles.emptySubtext}>Add an event to get started</Text>
+              <Text style={styles.emptySubtext}>Tap + to schedule an event</Text>
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Add Event Modal - FIXED WITH KEYBOARD AVOIDING VIEW */}
+      {/* Add Event Modal - IMPROVED WITH BACKDROP DISMISS */}
       <Modal
         visible={showAddModal}
         animationType="slide"
-        presentationStyle="pageSheet"
+        transparent={true}
         onRequestClose={() => setShowAddModal(false)}
       >
-        <KeyboardAvoidingView
-          style={styles.modalContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowAddModal(false)}
         >
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowAddModal(false)} activeOpacity={0.7}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Add Event</Text>
-            <View style={{ width: 60 }} />
-          </View>
-
-          <ScrollView 
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
             style={styles.modalContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.label}>Event Title *</Text>
-            <TextInput
-              style={commonStyles.input}
-              placeholder="e.g., Family Dinner"
-              placeholderTextColor={colors.textSecondary}
-              value={newEventTitle}
-              onChangeText={setNewEventTitle}
-              autoFocus
-              editable={!isSubmitting}
-            />
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+              <ScrollView 
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={styles.modalTitle}>Add Event</Text>
 
-            <Text style={styles.label}>Description (Optional)</Text>
-            <TextInput
-              style={[commonStyles.input, styles.textArea]}
-              placeholder="Add details..."
-              placeholderTextColor={colors.textSecondary}
-              value={newEventDescription}
-              onChangeText={setNewEventDescription}
-              multiline
-              numberOfLines={3}
-              editable={!isSubmitting}
-            />
+                <Text style={styles.label}>Event Title *</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="e.g., Family Dinner"
+                  placeholderTextColor={colors.textSecondary}
+                  value={newEventTitle}
+                  onChangeText={setNewEventTitle}
+                  autoFocus
+                  editable={!isSubmitting}
+                />
 
-            <Text style={styles.label}>Date *</Text>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.dateButtonText}>
-                {formatDate(newEventDate)}
-              </Text>
-              <IconSymbol
-                ios_icon_name="calendar.circle"
-                android_material_icon_name="event"
-                size={20}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
+                <Text style={styles.label}>Description (Optional)</Text>
+                <TextInput
+                  style={[commonStyles.input, styles.textArea]}
+                  placeholder="Add details..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={newEventDescription}
+                  onChangeText={setNewEventDescription}
+                  multiline
+                  numberOfLines={3}
+                  editable={!isSubmitting}
+                />
 
-            {showDatePicker && (
-              <DateTimePicker
-                value={newEventDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onDateChange}
-                minimumDate={new Date()}
-              />
-            )}
+                <Text style={styles.label}>Date *</Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.dateButtonText}>
+                    {formatDate(newEventDate)}
+                  </Text>
+                  <IconSymbol
+                    ios_icon_name="calendar.circle"
+                    android_material_icon_name="event"
+                    size={20}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
 
-            <Text style={styles.label}>Time (Optional)</Text>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowTimePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.dateButtonText}>
-                {formatTime(newEventTime)}
-              </Text>
-              <IconSymbol
-                ios_icon_name="clock"
-                android_material_icon_name="schedule"
-                size={20}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={newEventDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={onDateChange}
+                    minimumDate={new Date()}
+                  />
+                )}
 
-            {showTimePicker && (
-              <DateTimePicker
-                value={newEventTime}
-                mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onTimeChange}
-              />
-            )}
+                <Text style={styles.label}>Time (Optional)</Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowTimePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.dateButtonText}>
+                    {formatTime(newEventTime)}
+                  </Text>
+                  <IconSymbol
+                    ios_icon_name="clock"
+                    android_material_icon_name="schedule"
+                    size={20}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[buttonStyles.primary, styles.createButton, isSubmitting && styles.buttonDisabled]}
-              onPress={handleAddEvent}
-              disabled={isSubmitting}
-              activeOpacity={0.7}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color={colors.card} />
-              ) : (
-                <Text style={buttonStyles.text}>Add Event</Text>
-              )}
-            </TouchableOpacity>
-          </ScrollView>
-        </KeyboardAvoidingView>
+                {showTimePicker && (
+                  <DateTimePicker
+                    value={newEventTime}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={onTimeChange}
+                  />
+                )}
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[buttonStyles.outline, styles.modalButton]}
+                    onPress={() => setShowAddModal(false)}
+                    disabled={isSubmitting}
+                  >
+                    <Text style={buttonStyles.outlineText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[buttonStyles.primary, styles.modalButton]}
+                    onPress={handleAddEvent}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator color={colors.card} />
+                    ) : (
+                      <Text style={buttonStyles.text}>Add Event</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* Conflict Resolution Modal */}
@@ -916,52 +921,39 @@ const styles = StyleSheet.create({
     color: colors.error,
   },
   emptyState: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 48,
     alignItems: 'center',
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
+    justifyContent: 'center',
+    padding: 40,
+    marginTop: 60,
   },
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
+    color: '#6B7280',
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: '#9CA3AF',
     marginTop: 8,
   },
-  modalContainer: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  cancelText: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 24,
   },
   label: {
     fontSize: 14,
@@ -990,12 +982,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
   },
-  createButton: {
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
     marginTop: 24,
-    marginBottom: 40,
+    marginBottom: 20,
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  modalButton: {
+    flex: 1,
   },
   conflictOverlay: {
     flex: 1,
