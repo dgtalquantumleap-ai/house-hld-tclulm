@@ -9,6 +9,8 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -194,11 +196,96 @@ export default function HouseholdSetupScreen() {
     );
   }
 
-  // Step 2: Create Household
+  // Step 2: Create Household - FIXED WITH KEYBOARD AVOIDING VIEW
   if (step === 2) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView 
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => setStep(1)}
+            >
+              <IconSymbol
+                ios_icon_name="chevron.left"
+                android_material_icon_name="arrow_back"
+                size={24}
+                color={COLORS.primary}
+              />
+              <Text style={styles.backText}>Back</Text>
+            </TouchableOpacity>
+
+            <View style={styles.header}>
+              <View style={[styles.iconContainer, { backgroundColor: `${COLORS.primary}15` }]}>
+                <IconSymbol
+                  ios_icon_name="house.fill"
+                  android_material_icon_name="home"
+                  size={48}
+                  color={COLORS.primary}
+                />
+              </View>
+              <Text style={styles.title}>Name Household</Text>
+              <Text style={styles.subtitle}>Choose a name for your household</Text>
+            </View>
+
+            <View style={styles.form}>
+              <View style={styles.inputContainer}>
+                <IconSymbol
+                  ios_icon_name="house"
+                  android_material_icon_name="home"
+                  size={20}
+                  color={COLORS.gray}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="The Smith Family"
+                  placeholderTextColor={COLORS.gray}
+                  value={householdName}
+                  onChangeText={setHouseholdName}
+                  editable={!isLoading}
+                  autoFocus
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+                onPress={handleCreateHousehold}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Create</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  // Step 3: Join Household - FIXED WITH KEYBOARD AVOIDING VIEW
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => setStep(1)}
@@ -213,117 +300,52 @@ export default function HouseholdSetupScreen() {
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <View style={[styles.iconContainer, { backgroundColor: `${COLORS.primary}15` }]}>
+            <View style={[styles.iconContainer, { backgroundColor: `${COLORS.success}15` }]}>
               <IconSymbol
-                ios_icon_name="house.fill"
-                android_material_icon_name="home"
+                ios_icon_name="key.fill"
+                android_material_icon_name="vpn_key"
                 size={48}
-                color={COLORS.primary}
+                color={COLORS.success}
               />
             </View>
-            <Text style={styles.title}>Name Household</Text>
-            <Text style={styles.subtitle}>Choose a name for your household</Text>
+            <Text style={styles.title}>Enter Code</Text>
+            <Text style={styles.subtitle}>Enter the invite code you received</Text>
           </View>
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <IconSymbol
-                ios_icon_name="house"
-                android_material_icon_name="home"
+                ios_icon_name="key"
+                android_material_icon_name="vpn_key"
                 size={20}
                 color={COLORS.gray}
               />
               <TextInput
                 style={styles.input}
-                placeholder="The Smith Family"
+                placeholder="ABC-123-XYZ"
                 placeholderTextColor={COLORS.gray}
-                value={householdName}
-                onChangeText={setHouseholdName}
+                value={inviteCode}
+                onChangeText={setInviteCode}
                 editable={!isLoading}
+                autoCapitalize="characters"
                 autoFocus
               />
             </View>
 
             <TouchableOpacity
               style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
-              onPress={handleCreateHousehold}
+              onPress={handleJoinHousehold}
               disabled={isLoading}
             >
               {isLoading ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.primaryButtonText}>Create</Text>
+                <Text style={styles.primaryButtonText}>Join</Text>
               )}
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // Step 3: Join Household
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => setStep(1)}
-        >
-          <IconSymbol
-            ios_icon_name="chevron.left"
-            android_material_icon_name="arrow_back"
-            size={24}
-            color={COLORS.primary}
-          />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-
-        <View style={styles.header}>
-          <View style={[styles.iconContainer, { backgroundColor: `${COLORS.success}15` }]}>
-            <IconSymbol
-              ios_icon_name="key.fill"
-              android_material_icon_name="vpn_key"
-              size={48}
-              color={COLORS.success}
-            />
-          </View>
-          <Text style={styles.title}>Enter Code</Text>
-          <Text style={styles.subtitle}>Enter the invite code you received</Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <IconSymbol
-              ios_icon_name="key"
-              android_material_icon_name="vpn_key"
-              size={20}
-              color={COLORS.gray}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="ABC-123-XYZ"
-              placeholderTextColor={COLORS.gray}
-              value={inviteCode}
-              onChangeText={setInviteCode}
-              editable={!isLoading}
-              autoCapitalize="characters"
-              autoFocus
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
-            onPress={handleJoinHousehold}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <Text style={styles.primaryButtonText}>Join</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

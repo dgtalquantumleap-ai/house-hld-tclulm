@@ -12,6 +12,7 @@ import {
   Alert,
   RefreshControl,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -128,10 +129,10 @@ export default function CalendarScreen() {
               console.error('Delete error:', error);
               Alert.alert('Error', error);
             } else {
-              console.log('Event deleted successfully');
-              Alert.alert('Success', 'Event deleted successfully');
-              // Force refresh the events list
+              console.log('Event deleted successfully, refreshing list');
+              // Force immediate refresh
               await refreshEvents();
+              Alert.alert('Success', 'Event deleted successfully');
             }
           },
         },
@@ -474,7 +475,7 @@ export default function CalendarScreen() {
                         </View>
                       )}
 
-                      {/* Delete Button - FIXED */}
+                      {/* Delete Button */}
                       {canDeleteEvent && (
                         <TouchableOpacity
                           style={styles.deleteButton}
@@ -513,14 +514,18 @@ export default function CalendarScreen() {
         </View>
       </ScrollView>
 
-      {/* Add Event Modal */}
+      {/* Add Event Modal - FIXED WITH KEYBOARD AVOIDING VIEW */}
       <Modal
         visible={showAddModal}
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowAddModal(false)}
       >
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowAddModal(false)} activeOpacity={0.7}>
               <Text style={styles.cancelText}>Cancel</Text>
@@ -529,7 +534,11 @@ export default function CalendarScreen() {
             <View style={{ width: 60 }} />
           </View>
 
-          <ScrollView style={styles.modalContent}>
+          <ScrollView 
+            style={styles.modalContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <Text style={styles.label}>Event Title *</Text>
             <TextInput
               style={commonStyles.input}
@@ -619,7 +628,7 @@ export default function CalendarScreen() {
               )}
             </TouchableOpacity>
           </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Conflict Resolution Modal */}

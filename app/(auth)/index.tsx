@@ -19,10 +19,10 @@ const COLORS = {
 };
 
 const features = [
-  { id: 1, iosIcon: 'calendar', androidIcon: 'event', label: 'Calendar', color: COLORS.primary },
-  { id: 2, iosIcon: 'checkmark.square.fill', androidIcon: 'check_box', label: 'Tasks', color: COLORS.success },
-  { id: 3, iosIcon: 'cart.fill', androidIcon: 'shopping_cart', label: 'Shopping', color: COLORS.warning },
-  { id: 4, iosIcon: 'fork.knife', androidIcon: 'restaurant', label: 'Meals', color: COLORS.error },
+  { id: 'calendar', iosIcon: 'calendar', androidIcon: 'event', label: 'Calendar', color: COLORS.primary },
+  { id: 'tasks', iosIcon: 'checkmark.square.fill', androidIcon: 'check_box', label: 'Tasks', color: COLORS.success },
+  { id: 'shopping', iosIcon: 'cart.fill', androidIcon: 'shopping_cart', label: 'Shopping', color: COLORS.warning },
+  { id: 'meals', iosIcon: 'fork.knife', androidIcon: 'restaurant', label: 'Meals', color: COLORS.error },
 ];
 
 export default function WelcomeScreen() {
@@ -116,10 +116,10 @@ export default function WelcomeScreen() {
           {/* SOCIAL PROOF */}
           <Text style={styles.socialProof}>Join families managing homes better</Text>
 
-          {/* FEATURE GRID */}
+          {/* FEATURE GRID - FIXED WITH UNIQUE KEYS */}
           <View style={styles.featureGrid}>
-            {features.map((feature, index) => (
-              <View key={index} style={styles.featureItem}>
+            {features.map((feature) => (
+              <View key={feature.id} style={styles.featureItem}>
                 <View style={[styles.featureIconContainer, { backgroundColor: `${feature.color}15` }]}>
                   <IconSymbol
                     ios_icon_name={feature.iosIcon}

@@ -7,9 +7,31 @@ import { clearAuthStorage, validateAndRecoverSession } from '@/utils/authRecover
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '@/styles/commonStyles';
 
+// ONLY SHOW IN DEVELOPMENT MODE
+const IS_DEV = __DEV__;
+
 export default function AuthDebugScreen() {
   const router = useRouter();
   const [logs, setLogs] = useState<string[]>([]);
+
+  // Redirect if not in development mode
+  if (!IS_DEV) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.notAvailableContainer}>
+          <Text style={styles.notAvailableText}>
+            This screen is only available in development mode.
+          </Text>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backButtonText}>← Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   const addLog = (message: string) => {
     setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
@@ -100,10 +122,10 @@ export default function AuthDebugScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButtonHeader}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Auth Debug</Text>
+        <Text style={styles.title}>Auth Debug (Dev Only)</Text>
       </View>
 
       <View style={styles.buttonGrid}>
@@ -152,13 +174,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingTop: Platform.OS === 'android' ? 48 : 0,
   },
+  notAvailableContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  notAvailableText: {
+    fontSize: 18,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
   header: {
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  backButton: {
+  backButtonHeader: {
     marginBottom: 8,
+  },
+  backButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
   },
   backButtonText: {
     fontSize: 16,

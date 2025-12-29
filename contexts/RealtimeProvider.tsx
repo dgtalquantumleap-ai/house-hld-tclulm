@@ -71,7 +71,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         table: 'household_events',
         filter: `household_id=eq.${user.householdId}`
       }, (payload) => {
-        console.log('[RealtimeProvider] Events change detected:', payload.eventType);
+        console.log('[RealtimeProvider] Events change detected:', payload.eventType, payload);
+        // Immediately reload events when any change is detected
         loadEvents();
       })
       .subscribe((status) => {
