@@ -24,7 +24,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function CalendarScreen() {
   const { user } = useAuth();
-  const { events } = useRealtimeData();
+  const { events, connectionStatus } = useRealtimeData();
   const { createEvent, updateEvent, deleteEvent, refreshEvents } = useEvents();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showConflictModal, setShowConflictModal] = useState(false);
@@ -97,8 +97,7 @@ export default function CalendarScreen() {
         setNewEventTime(new Date());
         setShowAddModal(false);
         Alert.alert('Success', 'Event created! Other household members will be notified.');
-        // Refresh events list
-        await refreshEvents();
+        // No need to manually refresh - realtime will handle it
       }
     } finally {
       setIsSubmitting(false);
@@ -130,9 +129,8 @@ export default function CalendarScreen() {
               console.error('Delete error:', error);
               Alert.alert('Error', error);
             } else {
-              console.log('Event deleted successfully, refreshing list');
-              // Force immediate refresh
-              await refreshEvents();
+              console.log('Event deleted successfully');
+              // No need to manually refresh - realtime will handle it
               Alert.alert('Success', 'Event deleted successfully');
             }
           },
@@ -147,7 +145,10 @@ export default function CalendarScreen() {
   };
 
   const resolveConflict = async (action: 'keep_mine' | 'keep_partner' | 'merge') => {
-    if (!conflictEvent) return;
+    if (!conflictEvent) {
+      console.log('No conflict event to resolve');
+      return;
+    }
 
     try {
       if (action === 'keep_mine') {
@@ -169,8 +170,9 @@ export default function CalendarScreen() {
       
       setShowConflictModal(false);
       setConflictEvent(null);
-      await refreshEvents();
+      // No need to manually refresh - realtime will handle it
     } catch (error: any) {
+      console.error('Error resolving conflict:', error);
       Alert.alert('Error', error.message);
     }
   };
@@ -184,7 +186,7 @@ export default function CalendarScreen() {
       Alert.alert('Error', error);
     } else {
       Alert.alert('Success', `Event ${status}`);
-      await refreshEvents();
+      // No need to manually refresh - realtime will handle it
     }
   };
 
@@ -315,10 +317,28 @@ export default function CalendarScreen() {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   };
 
+  // Connection status indicator
+  const getConnectionStatusColor = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return colors.success;
+      case 'connecting':
+        return colors.warning;
+      case 'error':
+        return colors.error;
+      default:
+        return colors.textSecondary;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Calendar</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.title}>Calendar</Text>
+          {/* Connection status indicator */}
+          <View style={[styles.statusDot, { backgroundColor: getConnectionStatusColor() }]} />
+        </View>
         <View style={styles.headerActions}>
           {canCreateEvent && (
             <TouchableOpacity 
@@ -703,10 +723,20 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 28,
     fontWeight: '800',
     color: colors.text,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   headerActions: {
     flexDirection: 'row',
