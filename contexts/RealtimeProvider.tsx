@@ -19,11 +19,19 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user?.householdId) {
-      console.log('[RealtimeProvider] No household ID, skipping subscriptions');
+      console.log('[RealtimeProvider] No household ID, clearing data and skipping subscriptions');
+      setTasks([]);
+      setShoppingItems([]);
+      setEvents([]);
       return;
     }
 
     console.log('[RealtimeProvider] Setting up subscriptions for household:', user.householdId);
+
+    // Initial load
+    loadTasks();
+    loadShop();
+    loadEvents();
 
     const tasksChannel = supabase
       .channel(`tasks-${user.householdId}`)
@@ -69,11 +77,6 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       .subscribe((status) => {
         console.log('[RealtimeProvider] Events channel status:', status);
       });
-
-    // Initial load
-    loadTasks();
-    loadShop();
-    loadEvents();
 
     return () => {
       console.log('[RealtimeProvider] Cleaning up subscriptions');

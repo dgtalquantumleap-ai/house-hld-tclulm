@@ -1,10 +1,76 @@
 
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { HouseholdEvent } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeData } from '@/contexts/RealtimeProvider';
 
 export function useEvents() {
   const { user } = useAuth();
+  const { events: realtimeEvents } = useRealtimeData();
+  const [events, setEvents] = useState<HouseholdEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Use realtime data from provider
+  useEffect(() => {
+    if (realtimeEvents) {
+      const mappedEvents = realtimeEvents.map((event: any) => ({
+        id: event.id,
+        householdId: event.household_id,
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        description: event.description,
+        createdByUserId: event.created_by_user_id,
+        assignedToUserId: event.assigned_to_user_id,
+        repeat: event.repeat,
+        createdAt: event.created_at,
+        updatedAt: event.updated_at,
+        confirmationStatus: event.confirmation_status,
+        calendarSource: event.calendar_source,
+        externalEventId: event.external_event_id,
+      }));
+      setEvents(mappedEvents);
+      setIsLoading(false);
+    }
+  }, [realtimeEvents]);
+
+  const refreshEvents = async () => {
+    if (!user?.householdId) return;
+    
+    try {
+      console.log('useEvents: Refreshing events');
+      const { data, error } = await supabase
+        .from('household_events')
+        .select('*')
+        .eq('household_id', user.householdId)
+        .order('date', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (data) {
+        const mappedEvents = data.map((event: any) => ({
+          id: event.id,
+          householdId: event.household_id,
+          title: event.title,
+          date: event.date,
+          time: event.time,
+          description: event.description,
+          createdByUserId: event.created_by_user_id,
+          assignedToUserId: event.assigned_to_user_id,
+          repeat: event.repeat,
+          createdAt: event.created_at,
+          updatedAt: event.updated_at,
+          confirmationStatus: event.confirmation_status,
+          calendarSource: event.calendar_source,
+          externalEventId: event.external_event_id,
+        }));
+        setEvents(mappedEvents);
+      }
+    } catch (err: any) {
+      console.error('useEvents: Error refreshing events:', err);
+    }
+  };
 
   const createEvent = async (eventData: Partial<HouseholdEvent>) => {
     try {
@@ -84,6 +150,9 @@ export function useEvents() {
   };
 
   return {
+    events,
+    isLoading,
+    refreshEvents,
     createEvent,
     updateEvent,
     deleteEvent,

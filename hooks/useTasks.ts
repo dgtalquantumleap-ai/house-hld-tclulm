@@ -1,10 +1,72 @@
 
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeData } from '@/contexts/RealtimeProvider';
 
 export function useTasks() {
   const { user } = useAuth();
+  const { tasks: realtimeTasks } = useRealtimeData();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Use realtime data from provider
+  useEffect(() => {
+    if (realtimeTasks) {
+      const mappedTasks = realtimeTasks.map((task: any) => ({
+        id: task.id,
+        householdId: task.household_id,
+        title: task.title,
+        description: task.description,
+        assignedToUserId: task.assigned_to_user_id,
+        frequency: task.frequency,
+        dueDate: task.due_date,
+        status: task.status,
+        createdByUserId: task.created_by_user_id,
+        completedAt: task.completed_at,
+        createdAt: task.created_at,
+        updatedAt: task.updated_at,
+      }));
+      setTasks(mappedTasks);
+      setIsLoading(false);
+    }
+  }, [realtimeTasks]);
+
+  const refreshTasks = async () => {
+    if (!user?.householdId) return;
+    
+    try {
+      console.log('useTasks: Refreshing tasks');
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('household_id', user.householdId)
+        .order('due_date', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (data) {
+        const mappedTasks = data.map((task: any) => ({
+          id: task.id,
+          householdId: task.household_id,
+          title: task.title,
+          description: task.description,
+          assignedToUserId: task.assigned_to_user_id,
+          frequency: task.frequency,
+          dueDate: task.due_date,
+          status: task.status,
+          createdByUserId: task.created_by_user_id,
+          completedAt: task.completed_at,
+          createdAt: task.created_at,
+          updatedAt: task.updated_at,
+        }));
+        setTasks(mappedTasks);
+      }
+    } catch (err: any) {
+      console.error('useTasks: Error refreshing tasks:', err);
+    }
+  };
 
   const createTask = async (taskData: Partial<Task>) => {
     try {
@@ -89,6 +151,9 @@ export function useTasks() {
   };
 
   return {
+    tasks,
+    isLoading,
+    refreshTasks,
     createTask,
     updateTask,
     deleteTask,

@@ -1,9 +1,70 @@
 
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { ShoppingItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeData } from '@/contexts/RealtimeProvider';
 
 export function useShoppingList() {
   const { user } = useAuth();
+  const { shoppingItems: realtimeItems } = useRealtimeData();
+  const [items, setItems] = useState<ShoppingItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Use realtime data from provider
+  useEffect(() => {
+    if (realtimeItems) {
+      const mappedItems = realtimeItems.map((item: any) => ({
+        id: item.id,
+        householdId: item.household_id,
+        name: item.name,
+        quantity: item.quantity,
+        category: item.category,
+        addedByUserId: item.added_by_user_id,
+        purchased: item.purchased,
+        purchasedByUserId: item.purchased_by_user_id,
+        purchasedAt: item.purchased_at,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+      }));
+      setItems(mappedItems);
+      setIsLoading(false);
+    }
+  }, [realtimeItems]);
+
+  const refreshItems = async () => {
+    if (!user?.householdId) return;
+    
+    try {
+      console.log('useShoppingList: Refreshing items');
+      const { data, error } = await supabase
+        .from('shopping_items')
+        .select('*')
+        .eq('household_id', user.householdId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      if (data) {
+        const mappedItems = data.map((item: any) => ({
+          id: item.id,
+          householdId: item.household_id,
+          name: item.name,
+          quantity: item.quantity,
+          category: item.category,
+          addedByUserId: item.added_by_user_id,
+          purchased: item.purchased,
+          purchasedByUserId: item.purchased_by_user_id,
+          purchasedAt: item.purchased_at,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at,
+        }));
+        setItems(mappedItems);
+      }
+    } catch (err: any) {
+      console.error('useShoppingList: Error refreshing items:', err);
+    }
+  };
 
   const addItem = async (name: string, quantity?: string, category?: string) => {
     try {
@@ -76,6 +137,9 @@ export function useShoppingList() {
   };
 
   return {
+    items,
+    isLoading,
+    refreshItems,
     addItem,
     togglePurchased,
     deleteItem,

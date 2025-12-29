@@ -6,8 +6,8 @@ import { Alert, Platform } from 'react-native';
  * Sets up global error handlers for unhandled promise rejections and errors
  */
 export function setupGlobalErrorHandlers() {
-  // Handle unhandled errors
-  if (typeof global !== 'undefined' && global.ErrorUtils) {
+  // Handle unhandled errors - React Native specific
+  if (Platform.OS !== 'web' && typeof global !== 'undefined' && global.ErrorUtils) {
     const originalHandler = global.ErrorUtils.getGlobalHandler();
 
     global.ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
@@ -35,31 +35,39 @@ export function setupGlobalErrorHandlers() {
     });
   }
 
-  // Handle unhandled promise rejections - React Native specific
-  // Note: We don't use window.addEventListener in React Native
-  // The global error handler above will catch most unhandled rejections
-  
-  // Additional promise rejection tracking for development
-  if (__DEV__) {
-    const originalPromiseRejection = Promise.prototype.catch;
-    
-    // Track unhandled rejections in development
-    const trackingHandler = (promise: Promise<any>) => {
-      promise.catch((error: any) => {
-        console.warn('🔥 Unhandled promise rejection detected:', error);
-        
-        logError(
-          error instanceof Error ? error : new Error(String(error)),
-          {
-            component: 'GlobalErrorHandler',
-            action: 'unhandledRejection',
-          }
-        );
+  // Handle unhandled promise rejections - Web specific
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('🔥 Unhandled promise rejection:', event.reason);
+      
+      const error = event.reason instanceof Error 
+        ? event.reason 
+        : new Error(String(event.reason));
+      
+      logError(error, {
+        component: 'GlobalErrorHandler',
+        action: 'unhandledRejection',
       });
-    };
+      
+      // Prevent default browser behavior
+      event.preventDefault();
+    });
 
-    // Note: This is for development tracking only
-    // Production apps should handle promises properly
+    window.addEventListener('error', (event) => {
+      console.error('🔥 Global error:', event.error);
+      
+      const error = event.error instanceof Error 
+        ? event.error 
+        : new Error(event.message);
+      
+      logError(error, {
+        component: 'GlobalErrorHandler',
+        action: 'globalError',
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      });
+    });
   }
 
   console.log('✅ Global error handlers initialized for', Platform.OS);

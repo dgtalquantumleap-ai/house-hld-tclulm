@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Notification } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { realtimeCache } from '@/utils/realtimeCache';
 
 export function useNotifications() {
   const { user } = useAuth();
@@ -15,25 +14,6 @@ export function useNotifications() {
   useEffect(() => {
     if (user?.id) {
       loadNotifications();
-      
-      // Listen to centralized realtime events
-      const handleUpdate = () => {
-        console.log('useNotifications: Received realtime update event');
-        realtimeCache.throttle(
-          `notifications_reload_${user?.id}`,
-          () => {
-            realtimeCache.invalidate(`notifications_${user?.id}`);
-            loadNotifications(true);
-          },
-          2000 // 2 second throttle for notifications
-        );
-      };
-
-      window.addEventListener('notifications-updated', handleUpdate as EventListener);
-
-      return () => {
-        window.removeEventListener('notifications-updated', handleUpdate as EventListener);
-      };
     } else {
       setIsLoading(false);
     }
@@ -48,17 +28,6 @@ export function useNotifications() {
 
     try {
       loadingRef.current = true;
-      const cacheKey = `notifications_${user?.id}`;
-
-      // Check cache first (unless explicitly skipped)
-      if (!skipCache) {
-        const cached = realtimeCache.get<Notification[]>(cacheKey);
-        if (cached) {
-          setNotifications(cached);
-          setIsLoading(false);
-          return;
-        }
-      }
 
       console.log('useNotifications: Loading notifications for user:', user?.id);
       const { data, error } = await supabase
@@ -84,9 +53,6 @@ export function useNotifications() {
         }));
         
         setNotifications(mappedNotifications);
-        
-        // Cache the results for 5 seconds (notifications are less time-sensitive)
-        realtimeCache.set(cacheKey, mappedNotifications, 5000);
       }
     } catch (err: any) {
       console.error('useNotifications: Error loading notifications:', err);
@@ -109,8 +75,10 @@ export function useNotifications() {
 
       console.log('useNotifications: Notification marked as read');
       
-      // Invalidate cache immediately for instant UI update
-      realtimeCache.invalidate(`notifications_${user?.id}`);
+      // Update local state immediately
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+      );
       
       return { error: null };
     } catch (err: any) {
@@ -132,8 +100,10 @@ export function useNotifications() {
 
       console.log('useNotifications: All notifications marked as read');
       
-      // Invalidate cache immediately for instant UI update
-      realtimeCache.invalidate(`notifications_${user?.id}`);
+      // Update local state immediately
+      setNotifications(prev => 
+        prev.map(n => ({ ...n, read: true }))
+      );
       
       return { error: null };
     } catch (err: any) {
@@ -154,8 +124,8 @@ export function useNotifications() {
 
       console.log('useNotifications: Notification deleted');
       
-      // Invalidate cache immediately for instant UI update
-      realtimeCache.invalidate(`notifications_${user?.id}`);
+      // Update local state immediately
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
       
       return { error: null };
     } catch (err: any) {

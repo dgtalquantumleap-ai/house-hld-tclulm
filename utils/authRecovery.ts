@@ -1,31 +1,52 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import { Platform } from 'react-native';
 
 /**
- * Clears all auth-related data from AsyncStorage
+ * Clears all auth-related data from storage
  * Use this when auth tokens are corrupted or causing issues
  */
 export async function clearAuthStorage(): Promise<void> {
   try {
     console.log('AuthRecovery: Clearing auth storage');
     
-    // Get all keys
-    const keys = await AsyncStorage.getAllKeys();
-    
-    // Filter for Supabase auth keys
-    const authKeys = keys.filter(key => 
-      key.includes('supabase') || 
-      key.includes('auth') ||
-      key.includes('sb-')
-    );
-    
-    console.log('AuthRecovery: Found auth keys:', authKeys.length);
-    
-    // Remove all auth keys
-    if (authKeys.length > 0) {
-      await AsyncStorage.multiRemove(authKeys);
-      console.log('AuthRecovery: Cleared', authKeys.length, 'auth keys');
+    if (Platform.OS === 'web') {
+      // Clear localStorage on web
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const keys = Object.keys(window.localStorage);
+        const authKeys = keys.filter(key => 
+          key.includes('supabase') || 
+          key.includes('auth') ||
+          key.includes('sb-')
+        );
+        
+        console.log('AuthRecovery: Found auth keys:', authKeys.length);
+        
+        authKeys.forEach(key => {
+          window.localStorage.removeItem(key);
+        });
+        
+        console.log('AuthRecovery: Cleared', authKeys.length, 'auth keys from localStorage');
+      }
+    } else {
+      // Clear AsyncStorage on native
+      const keys = await AsyncStorage.getAllKeys();
+      
+      // Filter for Supabase auth keys
+      const authKeys = keys.filter(key => 
+        key.includes('supabase') || 
+        key.includes('auth') ||
+        key.includes('sb-')
+      );
+      
+      console.log('AuthRecovery: Found auth keys:', authKeys.length);
+      
+      // Remove all auth keys
+      if (authKeys.length > 0) {
+        await AsyncStorage.multiRemove(authKeys);
+        console.log('AuthRecovery: Cleared', authKeys.length, 'auth keys from AsyncStorage');
+      }
     }
     
     // Also sign out from Supabase to clear any in-memory state

@@ -1,10 +1,60 @@
 
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Meal, MealIngredient } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function useMeals() {
   const { user } = useAuth();
+  const [meals, setMeals] = useState<Meal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (user?.householdId) {
+      loadMeals();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user?.householdId]);
+
+  const loadMeals = async () => {
+    if (!user?.householdId) return;
+    
+    try {
+      console.log('useMeals: Loading meals');
+      const { data, error } = await supabase
+        .from('meals')
+        .select('*')
+        .eq('household_id', user.householdId)
+        .order('meal_date', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (data) {
+        const mappedMeals = data.map((meal: any) => ({
+          id: meal.id,
+          householdId: meal.household_id,
+          title: meal.title,
+          description: meal.description,
+          mealDate: meal.meal_date,
+          mealTime: meal.meal_time,
+          assignedToUserId: meal.assigned_to_user_id,
+          createdByUserId: meal.created_by_user_id,
+          createdAt: meal.created_at,
+          updatedAt: meal.updated_at,
+        }));
+        setMeals(mappedMeals);
+      }
+    } catch (err: any) {
+      console.error('useMeals: Error loading meals:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const refreshMeals = async () => {
+    await loadMeals();
+  };
 
   const createMeal = async (
     title: string,
@@ -73,6 +123,10 @@ export function useMeals() {
       });
 
       console.log('useMeals: Meal created successfully');
+      
+      // Refresh meals list
+      await loadMeals();
+      
       return { data: mealData, error: null };
     } catch (error: any) {
       console.error('useMeals: Error creating meal:', error);
@@ -102,6 +156,10 @@ export function useMeals() {
       if (error) throw error;
 
       console.log('useMeals: Meal updated successfully');
+      
+      // Refresh meals list
+      await loadMeals();
+      
       return { error: null };
     } catch (error: any) {
       console.error('useMeals: Error updating meal:', error);
@@ -121,6 +179,10 @@ export function useMeals() {
       if (error) throw error;
 
       console.log('useMeals: Meal deleted successfully');
+      
+      // Refresh meals list
+      await loadMeals();
+      
       return { error: null };
     } catch (error: any) {
       console.error('useMeals: Error deleting meal:', error);
@@ -154,6 +216,9 @@ export function useMeals() {
   };
 
   return {
+    meals,
+    isLoading,
+    refreshMeals,
     createMeal,
     updateMeal,
     deleteMeal,
