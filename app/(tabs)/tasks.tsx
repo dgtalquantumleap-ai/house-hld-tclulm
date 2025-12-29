@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -188,50 +190,59 @@ export default function TasksScreen() {
         transparent
         onRequestClose={() => setShowAddModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Task</Text>
-            <TextInput
-              style={commonStyles.input}
-              placeholder="Task title"
-              placeholderTextColor={colors.textSecondary}
-              value={newTaskTitle}
-              onChangeText={setNewTaskTitle}
-              autoFocus
-              editable={!isSubmitting}
-            />
-            <TextInput
-              style={[commonStyles.input, styles.textArea]}
-              placeholder="Description (optional)"
-              placeholderTextColor={colors.textSecondary}
-              value={newTaskDescription}
-              onChangeText={setNewTaskDescription}
-              multiline
-              numberOfLines={3}
-              editable={!isSubmitting}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[buttonStyles.outline, styles.modalButton]}
-                onPress={() => setShowAddModal(false)}
-                disabled={isSubmitting}
-              >
-                <Text style={buttonStyles.outlineText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[buttonStyles.primary, styles.modalButton]}
-                onPress={addTask}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color={colors.card} />
-                ) : (
-                  <Text style={buttonStyles.text}>Add</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            <ScrollView 
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              <Text style={styles.modalTitle}>Add New Task</Text>
+              <TextInput
+                style={commonStyles.input}
+                placeholder="Task title"
+                placeholderTextColor={colors.textSecondary}
+                value={newTaskTitle}
+                onChangeText={setNewTaskTitle}
+                autoFocus
+                editable={!isSubmitting}
+              />
+              <TextInput
+                style={[commonStyles.input, styles.textArea]}
+                placeholder="Description (optional)"
+                placeholderTextColor={colors.textSecondary}
+                value={newTaskDescription}
+                onChangeText={setNewTaskDescription}
+                multiline
+                numberOfLines={3}
+                editable={!isSubmitting}
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[buttonStyles.outline, styles.modalButton]}
+                  onPress={() => setShowAddModal(false)}
+                  disabled={isSubmitting}
+                >
+                  <Text style={buttonStyles.outlineText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[buttonStyles.primary, styles.modalButton]}
+                  onPress={addTask}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color={colors.card} />
+                  ) : (
+                    <Text style={buttonStyles.text}>Add</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -335,6 +346,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    maxHeight: '80%',
+  },
+  scrollContent: {
     padding: 24,
     paddingBottom: 40,
   },
@@ -351,6 +365,7 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 16,
   },
   modalButton: {
     flex: 1,

@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -193,56 +195,65 @@ export default function ShoppingScreen() {
         transparent
         onRequestClose={() => setShowAddModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Shopping Item</Text>
-            <TextInput
-              style={commonStyles.input}
-              placeholder="Item name"
-              placeholderTextColor={colors.textSecondary}
-              value={newItemName}
-              onChangeText={setNewItemName}
-              autoFocus
-              editable={!isSubmitting}
-            />
-            <TextInput
-              style={commonStyles.input}
-              placeholder="Quantity (optional)"
-              placeholderTextColor={colors.textSecondary}
-              value={newItemQuantity}
-              onChangeText={setNewItemQuantity}
-              editable={!isSubmitting}
-            />
-            <TextInput
-              style={commonStyles.input}
-              placeholder="Category (optional)"
-              placeholderTextColor={colors.textSecondary}
-              value={newItemCategory}
-              onChangeText={setNewItemCategory}
-              editable={!isSubmitting}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[buttonStyles.outline, styles.modalButton]}
-                onPress={() => setShowAddModal(false)}
-                disabled={isSubmitting}
-              >
-                <Text style={buttonStyles.outlineText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[buttonStyles.primary, styles.modalButton]}
-                onPress={handleAddItem}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color={colors.card} />
-                ) : (
-                  <Text style={buttonStyles.text}>Add</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            <ScrollView 
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              <Text style={styles.modalTitle}>Add Shopping Item</Text>
+              <TextInput
+                style={commonStyles.input}
+                placeholder="Item name"
+                placeholderTextColor={colors.textSecondary}
+                value={newItemName}
+                onChangeText={setNewItemName}
+                autoFocus
+                editable={!isSubmitting}
+              />
+              <TextInput
+                style={commonStyles.input}
+                placeholder="Quantity (optional)"
+                placeholderTextColor={colors.textSecondary}
+                value={newItemQuantity}
+                onChangeText={setNewItemQuantity}
+                editable={!isSubmitting}
+              />
+              <TextInput
+                style={commonStyles.input}
+                placeholder="Category (optional)"
+                placeholderTextColor={colors.textSecondary}
+                value={newItemCategory}
+                onChangeText={setNewItemCategory}
+                editable={!isSubmitting}
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[buttonStyles.outline, styles.modalButton]}
+                  onPress={() => setShowAddModal(false)}
+                  disabled={isSubmitting}
+                >
+                  <Text style={buttonStyles.outlineText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[buttonStyles.primary, styles.modalButton]}
+                  onPress={handleAddItem}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color={colors.card} />
+                  ) : (
+                    <Text style={buttonStyles.text}>Add</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -345,6 +356,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    maxHeight: '80%',
+  },
+  scrollContent: {
     padding: 24,
     paddingBottom: 40,
   },
@@ -357,6 +371,7 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 16,
   },
   modalButton: {
     flex: 1,
