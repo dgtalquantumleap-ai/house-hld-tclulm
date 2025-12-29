@@ -17,6 +17,7 @@ import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RealtimeProvider } from "@/contexts/RealtimeProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { setupGlobalErrorHandlers } from "@/utils/globalErrorHandler";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,6 +30,11 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+
+  useEffect(() => {
+    // Initialize global error handlers
+    setupGlobalErrorHandlers();
+  }, []);
 
   useEffect(() => {
     if (loaded) {

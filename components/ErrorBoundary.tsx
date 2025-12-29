@@ -1,8 +1,9 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { colors, buttonStyles } from '@/styles/commonStyles';
 import { logError } from '@/utils/errorLogger';
+import * as Updates from 'expo-updates';
 
 interface Props {
   children: ReactNode;
@@ -61,9 +62,20 @@ export class ErrorBoundary extends Component<Props, State> {
     });
   };
 
-  handleReload = () => {
-    // In a real app, you might want to reload the app or navigate to a safe screen
-    this.handleReset();
+  handleReload = async () => {
+    try {
+      // Try to reload the app using Expo Updates
+      if (!__DEV__) {
+        await Updates.reloadAsync();
+      } else {
+        // In development, just reset the error state
+        this.handleReset();
+      }
+    } catch (error) {
+      console.error('Failed to reload app:', error);
+      // Fallback to just resetting the error state
+      this.handleReset();
+    }
   };
 
   render() {
@@ -73,56 +85,68 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      // Default error UI
+      // Default error UI matching the design
       return (
         <View style={styles.container}>
-          <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.content}>
+            {/* Warning Icon */}
             <View style={styles.iconContainer}>
-              <Text style={styles.icon}>⚠️</Text>
+              <View style={styles.warningTriangle}>
+                <Text style={styles.warningIcon}>!</Text>
+              </View>
             </View>
             
+            {/* Title */}
             <Text style={styles.title}>Oops! Something went wrong</Text>
+            
+            {/* Subtitle */}
             <Text style={styles.subtitle}>
               We&apos;re sorry for the inconvenience. The app encountered an unexpected error.
             </Text>
 
+            {/* Error Details (Dev Mode Only) */}
             {__DEV__ && this.state.error && (
-              <View style={styles.errorDetails}>
-                <Text style={styles.errorTitle}>Error Details (Dev Mode):</Text>
-                <Text style={styles.errorMessage}>{this.state.error.toString()}</Text>
-                {this.state.errorInfo && (
-                  <Text style={styles.errorStack}>
-                    {this.state.errorInfo.componentStack}
-                  </Text>
-                )}
-              </View>
+              <ScrollView style={styles.errorDetailsContainer}>
+                <View style={styles.errorDetails}>
+                  <Text style={styles.errorTitle}>Error Details (Dev Mode):</Text>
+                  <Text style={styles.errorMessage}>{this.state.error.toString()}</Text>
+                  {this.state.errorInfo && (
+                    <Text style={styles.errorStack}>
+                      {this.state.errorInfo.componentStack}
+                    </Text>
+                  )}
+                </View>
+              </ScrollView>
             )}
 
+            {/* Action Buttons */}
             <View style={styles.buttonContainer}>
               <TouchableOpacity
-                style={[buttonStyles.primary, styles.button]}
+                style={styles.primaryButton}
                 onPress={this.handleReset}
+                activeOpacity={0.8}
               >
-                <Text style={buttonStyles.text}>Try Again</Text>
+                <Text style={styles.primaryButtonText}>Try Again</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[buttonStyles.outline, styles.button]}
+                style={styles.secondaryButton}
                 onPress={this.handleReload}
+                activeOpacity={0.8}
               >
-                <Text style={buttonStyles.outlineText}>Reload App</Text>
+                <Text style={styles.secondaryButtonText}>Reload App</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.infoContainer}>
-              <Text style={styles.infoText}>
-                If this problem persists, please contact support at support@househld.com
+            {/* Support Information */}
+            <View style={styles.supportContainer}>
+              <Text style={styles.supportText}>
+                If this problem persists, please contact support at
               </Text>
-              <Text style={styles.errorCount}>
-                Error count: {this.state.errorCount}
-              </Text>
+              <Text style={styles.supportEmail}>support@househld.com</Text>
+              <Text style={styles.errorCount}>Error count: {this.state.errorCount}</Text>
             </View>
-          </ScrollView>
+          </View>
         </View>
       );
     }
@@ -134,78 +158,138 @@ export class ErrorBoundary extends Component<Props, State> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#FFFFFF',
   },
   content: {
-    flexGrow: 1,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 32,
+    paddingTop: Platform.OS === 'android' ? 48 : 0,
   },
   iconContainer: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
-  icon: {
-    fontSize: 64,
+  warningTriangle: {
+    width: 80,
+    height: 80,
+    backgroundColor: '#FFB84D',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ rotate: '0deg' }],
+  },
+  warningIcon: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginTop: -4,
   },
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: colors.text,
+    color: '#1A1A1A',
     textAlign: 'center',
     marginBottom: 12,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
+    fontSize: 15,
+    color: '#6B7280',
     textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 24,
+    marginBottom: 40,
+    lineHeight: 22,
+    paddingHorizontal: 8,
+  },
+  errorDetailsContainer: {
+    maxHeight: 150,
+    width: '100%',
+    marginBottom: 24,
   },
   errorDetails: {
-    backgroundColor: colors.card,
+    backgroundColor: '#F9FAFB',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
-    width: '100%',
-    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   errorTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: colors.error,
+    color: '#EF4444',
     marginBottom: 8,
   },
   errorMessage: {
-    fontSize: 12,
-    color: colors.text,
+    fontSize: 11,
+    color: '#374151',
     marginBottom: 8,
-    fontFamily: 'monospace',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   errorStack: {
     fontSize: 10,
-    color: colors.textSecondary,
-    fontFamily: 'monospace',
+    color: '#6B7280',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   buttonContainer: {
     width: '100%',
     gap: 12,
+    marginBottom: 32,
   },
-  button: {
-    width: '100%',
-  },
-  infoContainer: {
-    marginTop: 32,
+  primaryButton: {
+    backgroundColor: '#6366F1',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  infoText: {
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#6366F1',
+  },
+  secondaryButtonText: {
+    color: '#6366F1',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  supportContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  supportText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: '#9CA3AF',
     textAlign: 'center',
-    marginBottom: 8,
+    lineHeight: 18,
+  },
+  supportEmail: {
+    fontSize: 12,
+    color: '#6366F1',
+    fontWeight: '600',
+    marginTop: 4,
+    marginBottom: 12,
   },
   errorCount: {
-    fontSize: 10,
-    color: colors.textSecondary,
+    fontSize: 11,
+    color: '#D1D5DB',
+    marginTop: 4,
   },
 });
