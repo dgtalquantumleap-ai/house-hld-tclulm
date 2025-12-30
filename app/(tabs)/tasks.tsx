@@ -193,21 +193,22 @@ export default function TasksScreen() {
         transparent={true}
         onRequestClose={() => setShowAddModal(false)}
       >
-        <TouchableOpacity
-          style={styles.overlay}
+        <TouchableOpacity 
+          style={styles.centeredModalOverlay}
           activeOpacity={1}
           onPress={() => setShowAddModal(false)}
         >
           <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-            style={{ width: '100%', justifyContent: 'center', alignItems: 'center' }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardView}
           >
-            <TouchableOpacity
+            <TouchableOpacity 
               activeOpacity={1}
               onPress={(e) => e.stopPropagation()}
-              style={styles.centered}
+              style={styles.centeredModalContent}
             >
               <Text style={styles.modalTitle}>Add New Task</Text>
+              
               <ScrollView 
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
@@ -221,6 +222,7 @@ export default function TasksScreen() {
                   autoFocus
                   editable={!isSubmitting}
                 />
+                
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   placeholder="Description (optional)"
@@ -232,23 +234,25 @@ export default function TasksScreen() {
                   editable={!isSubmitting}
                 />
               </ScrollView>
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-                <TouchableOpacity
-                  style={styles.cancel}
+              
+              <View style={styles.buttonRow}>
+                <TouchableOpacity 
+                  style={styles.cancelButton}
                   onPress={() => setShowAddModal(false)}
                   disabled={isSubmitting}
                 >
-                  <Text style={styles.cancelText}>Cancel</Text>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.add}
+                
+                <TouchableOpacity 
+                  style={styles.addButtonModal}
                   onPress={addTask}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
-                    <ActivityIndicator color="#FFF" />
+                    <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={{ color: '#FFF', fontWeight: '600' }}>Add</Text>
+                    <Text style={styles.addButtonText}>Add</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -354,16 +358,21 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 8,
   },
-  overlay: {
+  centeredModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  centered: {
+  keyboardView: {
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centeredModalContent: {
     width: '90%',
     maxWidth: 500,
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 24,
     maxHeight: '80%',
@@ -371,23 +380,29 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#1F2937',
     marginBottom: 20,
-    color: colors.text,
   },
   input: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
     fontSize: 16,
-    color: colors.text,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    color: '#1F2937',
   },
   textArea: {
-    height: 80,
+    height: 100,
     textAlignVertical: 'top',
   },
-  cancel: {
+  buttonRow: {
+    flexDirection: 'row',
+    marginTop: 20,
+    gap: 12,
+  },
+  cancelButton: {
     flex: 1,
     borderWidth: 2,
     borderColor: '#E5E7EB',
@@ -395,15 +410,21 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
-  cancelText: {
-    color: colors.text,
+  cancelButtonText: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#6B7280',
   },
-  add: {
+  addButtonModal: {
     flex: 1,
     backgroundColor: '#6366F1',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
+  },
+  addButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
