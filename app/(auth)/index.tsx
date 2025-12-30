@@ -116,10 +116,10 @@ export default function WelcomeScreen() {
           {/* SOCIAL PROOF */}
           <Text style={styles.socialProof}>Join families managing homes better</Text>
 
-          {/* FEATURE GRID - FIXED WITH UNIQUE KEYS */}
+          {/* FEATURE GRID - FIXED WITH key={index} */}
           <View style={styles.featureGrid}>
-            {features.map((feature) => (
-              <View key={feature.id} style={styles.featureItem}>
+            {features.map((feature, index) => (
+              <View key={index} style={styles.featureItem}>
                 <View style={[styles.featureIconContainer, { backgroundColor: `${feature.color}15` }]}>
                   <IconSymbol
                     ios_icon_name={feature.iosIcon}
