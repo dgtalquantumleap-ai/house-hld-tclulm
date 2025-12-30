@@ -194,28 +194,31 @@ export default function ShoppingScreen() {
 
       <Modal
         visible={showAddModal}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         onRequestClose={() => setShowAddModal(false)}
       >
         <TouchableOpacity
-          style={styles.modalOverlay}
+          style={styles.overlay}
           activeOpacity={1}
           onPress={() => setShowAddModal(false)}
         >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-            style={styles.modalContent}
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+            style={{ width: '100%', justifyContent: 'center', alignItems: 'center' }}
           >
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={styles.centered}
+            >
+              <Text style={styles.modalTitle}>Add Shopping Item</Text>
               <ScrollView 
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.modalTitle}>Add Shopping Item</Text>
                 <TextInput
-                  style={commonStyles.input}
+                  style={styles.input}
                   placeholder="Item name"
                   placeholderTextColor={colors.textSecondary}
                   value={newItemName}
@@ -224,7 +227,7 @@ export default function ShoppingScreen() {
                   editable={!isSubmitting}
                 />
                 <TextInput
-                  style={commonStyles.input}
+                  style={styles.input}
                   placeholder="Quantity (optional)"
                   placeholderTextColor={colors.textSecondary}
                   value={newItemQuantity}
@@ -232,36 +235,36 @@ export default function ShoppingScreen() {
                   editable={!isSubmitting}
                 />
                 <TextInput
-                  style={commonStyles.input}
+                  style={styles.input}
                   placeholder="Category (optional)"
                   placeholderTextColor={colors.textSecondary}
                   value={newItemCategory}
                   onChangeText={setNewItemCategory}
                   editable={!isSubmitting}
                 />
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[buttonStyles.outline, styles.modalButton]}
-                    onPress={() => setShowAddModal(false)}
-                    disabled={isSubmitting}
-                  >
-                    <Text style={buttonStyles.outlineText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[buttonStyles.primary, styles.modalButton]}
-                    onPress={handleAddItem}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <ActivityIndicator color={colors.card} />
-                    ) : (
-                      <Text style={buttonStyles.text}>Add</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
               </ScrollView>
-            </KeyboardAvoidingView>
-          </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+                <TouchableOpacity
+                  style={styles.cancel}
+                  onPress={() => setShowAddModal(false)}
+                  disabled={isSubmitting}
+                >
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.add}
+                  onPress={handleAddItem}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={{ color: '#FFF', fontWeight: '600' }}>Add</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -361,30 +364,52 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 8,
   },
-  modalOverlay: {
+  overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  centered: {
+    width: '90%',
+    maxWidth: 500,
+    backgroundColor: '#FFF',
+    borderRadius: 20,
     padding: 24,
     maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: 'bold',
+    marginBottom: 20,
     color: colors.text,
-    marginBottom: 24,
   },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
+  input: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    fontSize: 16,
+    color: colors.text,
   },
-  modalButton: {
+  cancel: {
     flex: 1,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  cancelText: {
+    color: colors.text,
+    fontWeight: '600',
+  },
+  add: {
+    flex: 1,
+    backgroundColor: '#6366F1',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
   },
 });
