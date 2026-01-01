@@ -69,6 +69,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Profile Card */}
       <View style={styles.header}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
@@ -82,7 +83,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Household Management */}
+      {/* Household Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Household</Text>
         <TouchableOpacity
@@ -104,6 +105,75 @@ export default function ProfileScreen() {
             size={24}
             color={colors.textSecondary}
           />
+        </TouchableOpacity>
+      </View>
+
+      {/* Legal Section - ALWAYS VISIBLE, NO CONDITIONS */}
+      <View style={styles.legalSection}>
+        <Text style={styles.sectionTitle}>Legal</Text>
+        
+        <TouchableOpacity 
+          style={styles.legalLink}
+          onPress={() => Linking.openURL('https://househld.app/privacy')}
+        >
+          <View style={styles.legalLinkContent}>
+            <IconSymbol
+              ios_icon_name="doc.text"
+              android_material_icon_name="description"
+              size={20}
+              color="#6B7280"
+            />
+            <Text style={styles.legalLinkText}>Privacy Policy</Text>
+          </View>
+          <IconSymbol
+            ios_icon_name="chevron.right"
+            android_material_icon_name="chevron-right"
+            size={20}
+            color="#9CA3AF"
+          />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.legalLink}
+          onPress={() => Linking.openURL('https://househld.app/terms')}
+        >
+          <View style={styles.legalLinkContent}>
+            <IconSymbol
+              ios_icon_name="shield.checkmark"
+              android_material_icon_name="verified-user"
+              size={20}
+              color="#6B7280"
+            />
+            <Text style={styles.legalLinkText}>Terms of Service</Text>
+          </View>
+          <IconSymbol
+            ios_icon_name="chevron.right"
+            android_material_icon_name="chevron-right"
+            size={20}
+            color="#9CA3AF"
+          />
+        </TouchableOpacity>
+        
+        <View style={styles.versionInfo}>
+          <Text style={styles.versionText}>Version 1.0.0</Text>
+          <Text style={styles.versionSubtext}>Made with ❤️ for families</Text>
+        </View>
+      </View>
+
+      {/* Sign Out Button */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Account</Text>
+        
+        <TouchableOpacity
+          style={[buttonStyles.outline, styles.signOutButton, isSigningOut && styles.signOutButtonDisabled]}
+          onPress={handleSignOut}
+          disabled={isSigningOut}
+        >
+          {isSigningOut ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Text style={buttonStyles.outlineText}>Sign Out</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -247,75 +317,6 @@ export default function ProfileScreen() {
           </View>
         </View>
       )}
-
-      {/* Legal Section */}
-      <View style={styles.legalSection}>
-        <Text style={styles.sectionTitle}>Legal</Text>
-        
-        <TouchableOpacity 
-          style={styles.legalLink}
-          onPress={() => Linking.openURL('https://househld.app/privacy')}
-        >
-          <View style={styles.legalLinkContent}>
-            <IconSymbol
-              ios_icon_name="doc.text"
-              android_material_icon_name="description"
-              size={20}
-              color="#6B7280"
-            />
-            <Text style={styles.legalLinkText}>Privacy Policy</Text>
-          </View>
-          <IconSymbol
-            ios_icon_name="chevron.right"
-            android_material_icon_name="chevron-right"
-            size={20}
-            color="#9CA3AF"
-          />
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.legalLink}
-          onPress={() => Linking.openURL('https://househld.app/terms')}
-        >
-          <View style={styles.legalLinkContent}>
-            <IconSymbol
-              ios_icon_name="shield.checkmark"
-              android_material_icon_name="verified-user"
-              size={20}
-              color="#6B7280"
-            />
-            <Text style={styles.legalLinkText}>Terms of Service</Text>
-          </View>
-          <IconSymbol
-            ios_icon_name="chevron.right"
-            android_material_icon_name="chevron-right"
-            size={20}
-            color="#9CA3AF"
-          />
-        </TouchableOpacity>
-        
-        <View style={styles.versionInfo}>
-          <Text style={styles.versionText}>Version 1.0.0</Text>
-          <Text style={styles.versionSubtext}>Made with ❤️ for families</Text>
-        </View>
-      </View>
-
-      {/* Account Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        
-        <TouchableOpacity
-          style={[buttonStyles.outline, styles.signOutButton, isSigningOut && styles.signOutButtonDisabled]}
-          onPress={handleSignOut}
-          disabled={isSigningOut}
-        >
-          {isSigningOut ? (
-            <ActivityIndicator color={colors.primary} />
-          ) : (
-            <Text style={buttonStyles.outlineText}>Sign Out</Text>
-          )}
-        </TouchableOpacity>
-      </View>
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>HouseHLD v1.0.0</Text>

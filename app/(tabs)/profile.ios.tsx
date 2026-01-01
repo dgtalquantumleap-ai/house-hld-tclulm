@@ -12,6 +12,7 @@ import {
   Modal,
   RefreshControl,
   Share,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -198,6 +199,7 @@ export default function ProfileScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
+          {/* Profile Card */}
           <View style={styles.profileCard}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
@@ -221,6 +223,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Household Section */}
           {household && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Household</Text>
@@ -292,31 +295,60 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          {__DEV__ && (
-            <TouchableOpacity
-              style={styles.householdCard}
-              onPress={() => router.push('/auth-debug' as any)}
-            >
-              <View style={styles.householdHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {/* Legal Section - ALWAYS VISIBLE, NO CONDITIONS */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Legal</Text>
+            <View style={styles.legalCard}>
+              <TouchableOpacity 
+                style={styles.legalLink}
+                onPress={() => Linking.openURL('https://househld.app/privacy')}
+              >
+                <View style={styles.legalLinkContent}>
                   <IconSymbol
-                    ios_icon_name="wrench.fill"
-                    android_material_icon_name="build"
-                    size={24}
-                    color="#F59E0B"
+                    ios_icon_name="doc.text"
+                    android_material_icon_name="description"
+                    size={20}
+                    color="#6B7280"
                   />
-                  <Text style={styles.householdName}>Auth Debug (Dev Only)</Text>
+                  <Text style={styles.legalLinkText}>Privacy Policy</Text>
                 </View>
                 <IconSymbol
                   ios_icon_name="chevron.right"
                   android_material_icon_name="chevron-right"
                   size={20}
-                  color={colors.textSecondary}
+                  color="#9CA3AF"
                 />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.legalLink}
+                onPress={() => Linking.openURL('https://househld.app/terms')}
+              >
+                <View style={styles.legalLinkContent}>
+                  <IconSymbol
+                    ios_icon_name="shield.checkmark"
+                    android_material_icon_name="verified-user"
+                    size={20}
+                    color="#6B7280"
+                  />
+                  <Text style={styles.legalLinkText}>Terms of Service</Text>
+                </View>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron-right"
+                  size={20}
+                  color="#9CA3AF"
+                />
+              </TouchableOpacity>
+              
+              <View style={styles.versionInfo}>
+                <Text style={styles.versionText}>Version 1.0.0</Text>
+                <Text style={styles.versionSubtext}>Made with ❤️ for families</Text>
               </View>
-            </TouchableOpacity>
-          )}
+            </View>
+          </View>
 
+          {/* Sign Out Button */}
           <TouchableOpacity 
             style={[styles.signOutButton, isSigningOut && styles.signOutButtonDisabled]} 
             onPress={handleSignOut}
@@ -688,12 +720,56 @@ const styles = StyleSheet.create({
   dangerText: {
     color: colors.error,
   },
+  legalCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  legalLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  legalLinkContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  legalLinkText: {
+    fontSize: 15,
+    color: '#4B5563',
+  },
+  versionInfo: {
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  versionText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginBottom: 4,
+  },
+  versionSubtext: {
+    fontSize: 12,
+    color: '#D1D5DB',
+  },
   signOutButton: {
     backgroundColor: colors.error,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
+    marginBottom: 24,
   },
   signOutButtonDisabled: {
     opacity: 0.6,
