@@ -9,6 +9,7 @@ import {
   Alert,
   Switch,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -247,6 +248,58 @@ export default function ProfileScreen() {
         </View>
       )}
 
+      {/* Legal Section */}
+      <View style={styles.legalSection}>
+        <Text style={styles.sectionTitle}>Legal</Text>
+        
+        <TouchableOpacity 
+          style={styles.legalLink}
+          onPress={() => Linking.openURL('https://househld.app/privacy')}
+        >
+          <View style={styles.legalLinkContent}>
+            <IconSymbol
+              ios_icon_name="doc.text"
+              android_material_icon_name="description"
+              size={20}
+              color="#6B7280"
+            />
+            <Text style={styles.legalLinkText}>Privacy Policy</Text>
+          </View>
+          <IconSymbol
+            ios_icon_name="chevron.right"
+            android_material_icon_name="chevron-right"
+            size={20}
+            color="#9CA3AF"
+          />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.legalLink}
+          onPress={() => Linking.openURL('https://househld.app/terms')}
+        >
+          <View style={styles.legalLinkContent}>
+            <IconSymbol
+              ios_icon_name="shield.checkmark"
+              android_material_icon_name="verified-user"
+              size={20}
+              color="#6B7280"
+            />
+            <Text style={styles.legalLinkText}>Terms of Service</Text>
+          </View>
+          <IconSymbol
+            ios_icon_name="chevron.right"
+            android_material_icon_name="chevron-right"
+            size={20}
+            color="#9CA3AF"
+          />
+        </TouchableOpacity>
+        
+        <View style={styles.versionInfo}>
+          <Text style={styles.versionText}>Version 1.0.0</Text>
+          <Text style={styles.versionSubtext}>Made with ❤️ for families</Text>
+        </View>
+      </View>
+
       {/* Account Actions */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
@@ -406,6 +459,47 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginVertical: 8,
+  },
+  legalSection: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 32,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
+  },
+  legalLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  legalLinkContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  legalLinkText: {
+    fontSize: 15,
+    color: '#4B5563',
+  },
+  versionInfo: {
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  versionText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginBottom: 4,
+  },
+  versionSubtext: {
+    fontSize: 12,
+    color: '#D1D5DB',
   },
   signOutButton: {
     marginTop: 8,
