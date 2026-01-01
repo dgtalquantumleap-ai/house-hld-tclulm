@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,7 +33,7 @@ export function useTasks() {
     }
   }, [realtimeTasks]);
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     if (!user?.householdId) return;
     
     try {
@@ -66,17 +66,38 @@ export function useTasks() {
     } catch (err: any) {
       console.error('useTasks: Error loading tasks:', err);
     }
-  };
+  }, [user?.householdId]);
 
-  const refreshTasks = async () => {
+  const refreshTasks = useCallback(async () => {
     await loadTasks();
-  };
+  }, [loadTasks]);
 
-  const createTask = async (taskData: Partial<Task>) => {
+  const createTask = useCallback(async (taskData: Partial<Task>) => {
     try {
       console.log('useTasks: Creating task:', taskData.title);
       if (!user?.householdId) throw new Error('No household selected');
 
+      // Optimistic update - add temporary task immediately
+      const tempId = `temp-${Date.now()}`;
+      const optimisticTask: Task = {
+        id: tempId,
+        householdId: user.householdId,
+        title: taskData.title || '',
+        description: taskData.description,
+        assignedToUserId: taskData.assignedToUserId,
+        frequency: taskData.frequency || 'one-time',
+        dueDate: taskData.dueDate,
+        status: taskData.status || 'pending',
+        createdByUserId: user.id,
+        completedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Add optimistic task to UI immediately
+      setTasks(prev => [optimisticTask, ...prev]);
+
+      // Perform actual database insert
       const { data, error } = await supabase
         .from('tasks')
         .insert([{
@@ -94,21 +115,59 @@ export function useTasks() {
 
       if (error) {
         console.error('useTasks: Error creating task:', error);
+        // Rollback optimistic update on error
+        setTasks(prev => prev.filter(t => t.id !== tempId));
         return { data: null, error: error.message };
       }
 
       console.log('useTasks: Task created successfully');
-      await loadTasks(); // Refetch
+      // Replace temp task with real task
+      setTasks(prev => prev.map(t => t.id === tempId ? {
+        id: data.id,
+        householdId: data.household_id,
+        title: data.title,
+        description: data.description,
+        assignedToUserId: data.assigned_to_user_id,
+        frequency: data.frequency,
+        dueDate: data.due_date,
+        status: data.status,
+        createdByUserId: data.created_by_user_id,
+        completedAt: data.completed_at,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      } : t));
+      
       return { data, error: null };
     } catch (err: any) {
       console.error('useTasks: Error creating task:', err);
       return { data: null, error: err.message };
     }
-  };
+  }, [user]);
 
-  const updateTask = async (taskId: string, updates: Partial<Task>) => {
+  const updateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
     try {
       console.log('useTasks: Updating task:', taskId);
+      
+      // Optimistic update
+      setTasks(prev => prev.map(task => {
+        if (task.id === taskId) {
+          const updatedTask = { ...task };
+          if (updates.title !== undefined) updatedTask.title = updates.title;
+          if (updates.description !== undefined) updatedTask.description = updates.description;
+          if (updates.assignedToUserId !== undefined) updatedTask.assignedToUserId = updates.assignedToUserId;
+          if (updates.frequency !== undefined) updatedTask.frequency = updates.frequency;
+          if (updates.dueDate !== undefined) updatedTask.dueDate = updates.dueDate;
+          if (updates.status !== undefined) {
+            updatedTask.status = updates.status;
+            if (updates.status === 'completed') {
+              updatedTask.completedAt = new Date().toISOString();
+            }
+          }
+          return updatedTask;
+        }
+        return task;
+      }));
+
       const dbUpdates: any = {};
       if (updates.title !== undefined) dbUpdates.title = updates.title;
       if (updates.description !== undefined) dbUpdates.description = updates.description;
@@ -117,7 +176,6 @@ export function useTasks() {
       if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
       if (updates.status !== undefined) {
         dbUpdates.status = updates.status;
-        // Set completed_at when marking as completed
         if (updates.status === 'completed') {
           dbUpdates.completed_at = new Date().toISOString();
         }
@@ -132,21 +190,28 @@ export function useTasks() {
 
       if (error) {
         console.error('useTasks: Error updating task:', error);
+        // Rollback on error - reload from server
+        await loadTasks();
         return { data: null, error: error.message };
       }
 
       console.log('useTasks: Task updated successfully');
-      await loadTasks(); // Refetch
       return { data, error: null };
     } catch (err: any) {
       console.error('useTasks: Error updating task:', err);
+      await loadTasks();
       return { data: null, error: err.message };
     }
-  };
+  }, [loadTasks]);
 
-  const deleteTask = async (taskId: string) => {
+  const deleteTask = useCallback(async (taskId: string) => {
     try {
       console.log('useTasks: Deleting task:', taskId);
+      
+      // Optimistic delete - remove from UI immediately
+      const taskToDelete = tasks.find(t => t.id === taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+
       const { error } = await supabase
         .from('tasks')
         .delete()
@@ -154,17 +219,21 @@ export function useTasks() {
 
       if (error) {
         console.error('useTasks: Error deleting task:', error);
+        // Rollback on error - restore the task
+        if (taskToDelete) {
+          setTasks(prev => [...prev, taskToDelete]);
+        }
         return { error: error.message };
       }
 
       console.log('useTasks: Task deleted successfully');
-      await loadTasks(); // Refetch
       return { error: null };
     } catch (err: any) {
       console.error('useTasks: Error deleting task:', err);
+      await loadTasks();
       return { error: err.message };
     }
-  };
+  }, [tasks, loadTasks]);
 
   return {
     tasks,
