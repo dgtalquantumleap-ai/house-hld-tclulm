@@ -77,27 +77,7 @@ export function useTasks() {
       console.log('useTasks: Creating task:', taskData.title);
       if (!user?.householdId) throw new Error('No household selected');
 
-      // Optimistic update - add temporary task immediately
-      const tempId = `temp-${Date.now()}`;
-      const optimisticTask: Task = {
-        id: tempId,
-        householdId: user.householdId,
-        title: taskData.title || '',
-        description: taskData.description,
-        assignedToUserId: taskData.assignedToUserId,
-        frequency: taskData.frequency || 'one-time',
-        dueDate: taskData.dueDate,
-        status: taskData.status || 'pending',
-        createdByUserId: user.id,
-        completedAt: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      // Add optimistic task to UI immediately
-      setTasks(prev => [optimisticTask, ...prev]);
-
-      // Perform actual database insert
+      // Perform database insert first
       const { data, error } = await supabase
         .from('tasks')
         .insert([{
@@ -115,14 +95,13 @@ export function useTasks() {
 
       if (error) {
         console.error('useTasks: Error creating task:', error);
-        // Rollback optimistic update on error
-        setTasks(prev => prev.filter(t => t.id !== tempId));
         return { data: null, error: error.message };
       }
 
       console.log('useTasks: Task created successfully');
-      // Replace temp task with real task
-      setTasks(prev => prev.map(t => t.id === tempId ? {
+      
+      // Add to state immediately after successful insert
+      const newTask: Task = {
         id: data.id,
         householdId: data.household_id,
         title: data.title,
@@ -135,7 +114,9 @@ export function useTasks() {
         completedAt: data.completed_at,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
-      } : t));
+      };
+      
+      setTasks(prev => [newTask, ...prev]);
       
       return { data, error: null };
     } catch (err: any) {
@@ -148,7 +129,7 @@ export function useTasks() {
     try {
       console.log('useTasks: Updating task:', taskId);
       
-      // Optimistic update
+      // Optimistic update - update UI first
       setTasks(prev => prev.map(task => {
         if (task.id === taskId) {
           const updatedTask = { ...task };
@@ -168,6 +149,7 @@ export function useTasks() {
         return task;
       }));
 
+      // Then update database
       const dbUpdates: any = {};
       if (updates.title !== undefined) dbUpdates.title = updates.title;
       if (updates.description !== undefined) dbUpdates.description = updates.description;
@@ -208,10 +190,11 @@ export function useTasks() {
     try {
       console.log('useTasks: Deleting task:', taskId);
       
-      // Optimistic delete - remove from UI immediately
+      // Optimistic delete - remove from UI first
       const taskToDelete = tasks.find(t => t.id === taskId);
       setTasks(prev => prev.filter(t => t.id !== taskId));
 
+      // Then delete from database
       const { error } = await supabase
         .from('tasks')
         .delete()
@@ -219,10 +202,8 @@ export function useTasks() {
 
       if (error) {
         console.error('useTasks: Error deleting task:', error);
-        // Rollback on error - restore the task
-        if (taskToDelete) {
-          setTasks(prev => [...prev, taskToDelete]);
-        }
+        // Rollback on error - reload to restore consistency
+        await loadTasks();
         return { error: error.message };
       }
 

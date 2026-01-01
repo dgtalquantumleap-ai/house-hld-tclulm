@@ -81,29 +81,7 @@ export function useEvents() {
       console.log('useEvents: Creating event:', eventData.title);
       if (!user?.householdId) throw new Error('No household selected');
 
-      // Optimistic update - add temporary event immediately
-      const tempId = `temp-${Date.now()}`;
-      const optimisticEvent: HouseholdEvent = {
-        id: tempId,
-        householdId: user.householdId,
-        title: eventData.title || '',
-        date: eventData.date || '',
-        time: eventData.time || null,
-        description: eventData.description || null,
-        createdByUserId: user.id,
-        assignedToUserId: eventData.assignedToUserId || null,
-        repeat: eventData.repeat || 'none',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        confirmationStatus: eventData.confirmationStatus || 'pending',
-        calendarSource: eventData.calendarSource || null,
-        externalEventId: eventData.externalEventId || null,
-      };
-
-      // Add optimistic event to UI immediately
-      setEvents(prev => [optimisticEvent, ...prev]);
-
-      // Perform actual database insert
+      // Perform database insert first
       const { data, error } = await supabase
         .from('household_events')
         .insert([{
@@ -122,14 +100,13 @@ export function useEvents() {
 
       if (error) {
         console.error('useEvents: Error creating event:', error);
-        // Rollback optimistic update on error
-        setEvents(prev => prev.filter(e => e.id !== tempId));
         return { data: null, error: error.message };
       }
 
       console.log('useEvents: Event created successfully');
-      // Replace temp event with real event
-      setEvents(prev => prev.map(e => e.id === tempId ? {
+      
+      // Add to state immediately after successful insert
+      const newEvent: HouseholdEvent = {
         id: data.id,
         householdId: data.household_id,
         title: data.title,
@@ -144,7 +121,9 @@ export function useEvents() {
         confirmationStatus: data.confirmation_status,
         calendarSource: data.calendar_source,
         externalEventId: data.external_event_id,
-      } : e));
+      };
+      
+      setEvents(prev => [newEvent, ...prev]);
       
       return { data, error: null };
     } catch (err: any) {
@@ -157,7 +136,7 @@ export function useEvents() {
     try {
       console.log('useEvents: Updating event:', eventId);
       
-      // Optimistic update
+      // Optimistic update - update UI first
       setEvents(prev => prev.map(event => {
         if (event.id === eventId) {
           const updatedEvent = { ...event };
@@ -173,6 +152,7 @@ export function useEvents() {
         return event;
       }));
 
+      // Then update database
       const dbUpdates: any = {};
       if (updates.title !== undefined) dbUpdates.title = updates.title;
       if (updates.date !== undefined) dbUpdates.date = updates.date;
@@ -209,10 +189,11 @@ export function useEvents() {
     try {
       console.log('useEvents: Deleting event:', eventId);
       
-      // Optimistic delete - remove from UI immediately
+      // Optimistic delete - remove from UI first
       const eventToDelete = events.find(e => e.id === eventId);
       setEvents(prev => prev.filter(e => e.id !== eventId));
 
+      // Then delete from database
       const { error } = await supabase
         .from('household_events')
         .delete()
@@ -220,10 +201,8 @@ export function useEvents() {
 
       if (error) {
         console.error('useEvents: Error deleting event:', error);
-        // Rollback on error - restore the event
-        if (eventToDelete) {
-          setEvents(prev => [...prev, eventToDelete]);
-        }
+        // Rollback on error - reload to restore consistency
+        await loadEvents();
         return { error: error.message };
       }
 
