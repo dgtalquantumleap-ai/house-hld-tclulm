@@ -35,11 +35,11 @@ export function useEvents() {
     }
   }, [realtimeEvents]);
 
-  const refreshEvents = async () => {
+  const loadEvents = async () => {
     if (!user?.householdId) return;
     
     try {
-      console.log('useEvents: Refreshing events');
+      console.log('useEvents: Loading events');
       const { data, error } = await supabase
         .from('household_events')
         .select('*')
@@ -68,8 +68,12 @@ export function useEvents() {
         setEvents(mappedEvents);
       }
     } catch (err: any) {
-      console.error('useEvents: Error refreshing events:', err);
+      console.error('useEvents: Error loading events:', err);
     }
+  };
+
+  const refreshEvents = async () => {
+    await loadEvents();
   };
 
   const createEvent = async (eventData: Partial<HouseholdEvent>) => {
@@ -92,9 +96,13 @@ export function useEvents() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('useEvents: Error creating event:', error);
+        return { data: null, error: error.message };
+      }
 
       console.log('useEvents: Event created successfully');
+      await loadEvents(); // Refetch
       return { data, error: null };
     } catch (err: any) {
       console.error('useEvents: Error creating event:', err);
@@ -120,9 +128,13 @@ export function useEvents() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('useEvents: Error updating event:', error);
+        return { data: null, error: error.message };
+      }
 
       console.log('useEvents: Event updated successfully');
+      await loadEvents(); // Refetch
       return { data, error: null };
     } catch (err: any) {
       console.error('useEvents: Error updating event:', err);
@@ -139,9 +151,13 @@ export function useEvents() {
         .delete()
         .eq('id', eventId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('useEvents: Error deleting event:', error);
+        return { error: error.message };
+      }
 
       console.log('useEvents: Event deleted successfully');
+      await loadEvents(); // Refetch
       return { error: null };
     } catch (err: any) {
       console.error('useEvents: Error deleting event:', err);

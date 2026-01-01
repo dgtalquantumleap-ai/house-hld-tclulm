@@ -32,11 +32,11 @@ export function useShoppingList() {
     }
   }, [realtimeItems]);
 
-  const refreshItems = async () => {
+  const loadItems = async () => {
     if (!user?.householdId) return;
     
     try {
-      console.log('useShoppingList: Refreshing items');
+      console.log('useShoppingList: Loading items');
       const { data, error } = await supabase
         .from('shopping_items')
         .select('*')
@@ -62,8 +62,12 @@ export function useShoppingList() {
         setItems(mappedItems);
       }
     } catch (err: any) {
-      console.error('useShoppingList: Error refreshing items:', err);
+      console.error('useShoppingList: Error loading items:', err);
     }
+  };
+
+  const refreshItems = async () => {
+    await loadItems();
   };
 
   const addItem = async (name: string, quantity?: string, category?: string) => {
@@ -84,9 +88,13 @@ export function useShoppingList() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('useShoppingList: Error adding item:', error);
+        return { data: null, error: error.message };
+      }
 
       console.log('useShoppingList: Item added successfully');
+      await loadItems(); // Refetch
       return { data, error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error adding item:', err);
@@ -108,9 +116,13 @@ export function useShoppingList() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('useShoppingList: Error updating item:', error);
+        return { data: null, error: error.message };
+      }
 
       console.log('useShoppingList: Item updated successfully');
+      await loadItems(); // Refetch
       return { data, error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error updating item:', err);
@@ -126,9 +138,13 @@ export function useShoppingList() {
         .delete()
         .eq('id', itemId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('useShoppingList: Error deleting item:', error);
+        return { error: error.message };
+      }
 
       console.log('useShoppingList: Item deleted successfully');
+      await loadItems(); // Refetch
       return { error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error deleting item:', err);

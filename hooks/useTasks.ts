@@ -33,11 +33,11 @@ export function useTasks() {
     }
   }, [realtimeTasks]);
 
-  const refreshTasks = async () => {
+  const loadTasks = async () => {
     if (!user?.householdId) return;
     
     try {
-      console.log('useTasks: Refreshing tasks');
+      console.log('useTasks: Loading tasks');
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -64,8 +64,12 @@ export function useTasks() {
         setTasks(mappedTasks);
       }
     } catch (err: any) {
-      console.error('useTasks: Error refreshing tasks:', err);
+      console.error('useTasks: Error loading tasks:', err);
     }
+  };
+
+  const refreshTasks = async () => {
+    await loadTasks();
   };
 
   const createTask = async (taskData: Partial<Task>) => {
@@ -88,9 +92,13 @@ export function useTasks() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('useTasks: Error creating task:', error);
+        return { data: null, error: error.message };
+      }
 
       console.log('useTasks: Task created successfully');
+      await loadTasks(); // Refetch
       return { data, error: null };
     } catch (err: any) {
       console.error('useTasks: Error creating task:', err);
@@ -122,9 +130,13 @@ export function useTasks() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('useTasks: Error updating task:', error);
+        return { data: null, error: error.message };
+      }
 
       console.log('useTasks: Task updated successfully');
+      await loadTasks(); // Refetch
       return { data, error: null };
     } catch (err: any) {
       console.error('useTasks: Error updating task:', err);
@@ -140,9 +152,13 @@ export function useTasks() {
         .delete()
         .eq('id', taskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('useTasks: Error deleting task:', error);
+        return { error: error.message };
+      }
 
       console.log('useTasks: Task deleted successfully');
+      await loadTasks(); // Refetch
       return { error: null };
     } catch (err: any) {
       console.error('useTasks: Error deleting task:', err);
