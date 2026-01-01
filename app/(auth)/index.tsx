@@ -25,6 +25,13 @@ const features = [
   { id: 'meals', iosIcon: 'fork.knife', androidIcon: 'restaurant', label: 'Meals', color: COLORS.error },
 ];
 
+const valueFeatures = [
+  { id: 'coordinate', text: 'Coordinate calendars' },
+  { id: 'plan', text: 'Plan meals' },
+  { id: 'share', text: 'Share tasks' },
+  { id: 'decide', text: 'Make decisions together' },
+];
+
 export default function WelcomeScreen() {
   const router = useRouter();
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -93,22 +100,12 @@ export default function WelcomeScreen() {
           <View style={styles.valueCard}>
             <Text style={styles.valueHeading}>Create your household and:</Text>
             <View style={styles.featureList}>
-              <View style={styles.featureListItem}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.featureListText}>Coordinate calendars</Text>
-              </View>
-              <View style={styles.featureListItem}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.featureListText}>Plan meals</Text>
-              </View>
-              <View style={styles.featureListItem}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.featureListText}>Share tasks</Text>
-              </View>
-              <View style={styles.featureListItem}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.featureListText}>Make decisions together</Text>
-              </View>
+              {valueFeatures.map((feature) => (
+                <View key={feature.id} style={styles.featureListItem}>
+                  <Text style={styles.bullet}>•</Text>
+                  <Text style={styles.featureListText}>{feature.text}</Text>
+                </View>
+              ))}
             </View>
             <Text style={styles.valueFooter}>All in one place.</Text>
           </View>
@@ -116,10 +113,10 @@ export default function WelcomeScreen() {
           {/* SOCIAL PROOF */}
           <Text style={styles.socialProof}>Join families managing homes better</Text>
 
-          {/* FEATURE GRID - FIXED WITH key={index} */}
+          {/* FEATURE GRID */}
           <View style={styles.featureGrid}>
-            {features.map((feature, index) => (
-              <View key={index} style={styles.featureItem}>
+            {features.map((feature) => (
+              <View key={feature.id} style={styles.featureItem}>
                 <View style={[styles.featureIconContainer, { backgroundColor: `${feature.color}15` }]}>
                   <IconSymbol
                     ios_icon_name={feature.iosIcon}
