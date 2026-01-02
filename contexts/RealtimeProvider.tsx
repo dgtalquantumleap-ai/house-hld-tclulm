@@ -27,8 +27,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const shopChannelRef = useRef<RealtimeChannel | null>(null);
   const eventsChannelRef = useRef<RealtimeChannel | null>(null);
   const isSubscribingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     if (!user?.householdId) {
       console.log('[RealtimeProvider] No household ID, clearing data and skipping subscriptions');
       setTasks([]);
@@ -62,23 +65,28 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       console.log('[RealtimeProvider] Cleaning up subscriptions');
+      isMountedRef.current = false;
       cleanupChannels();
       isSubscribingRef.current = false;
     };
   }, [user?.householdId]);
 
   const cleanupChannels = () => {
-    if (tasksChannelRef.current) {
-      supabase.removeChannel(tasksChannelRef.current);
-      tasksChannelRef.current = null;
-    }
-    if (shopChannelRef.current) {
-      supabase.removeChannel(shopChannelRef.current);
-      shopChannelRef.current = null;
-    }
-    if (eventsChannelRef.current) {
-      supabase.removeChannel(eventsChannelRef.current);
-      eventsChannelRef.current = null;
+    try {
+      if (tasksChannelRef.current) {
+        supabase.removeChannel(tasksChannelRef.current);
+        tasksChannelRef.current = null;
+      }
+      if (shopChannelRef.current) {
+        supabase.removeChannel(shopChannelRef.current);
+        shopChannelRef.current = null;
+      }
+      if (eventsChannelRef.current) {
+        supabase.removeChannel(eventsChannelRef.current);
+        eventsChannelRef.current = null;
+      }
+    } catch (error) {
+      console.error('[RealtimeProvider] Error cleaning up channels:', error);
     }
   };
 
@@ -97,25 +105,33 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         const tasksChannel = supabase.channel(`household:${user.householdId}:tasks`, {
           config: {
             broadcast: { self: false, ack: false },
-            private: false, // Using public channel for now (can be made private with RLS)
+            private: false,
           },
         });
 
         tasksChannel
           .on('broadcast', { event: 'task_created' }, (payload) => {
             console.log('[RealtimeProvider] Task created:', payload);
-            loadTasks();
+            if (isMountedRef.current) {
+              loadTasks();
+            }
           })
           .on('broadcast', { event: 'task_updated' }, (payload) => {
             console.log('[RealtimeProvider] Task updated:', payload);
-            loadTasks();
+            if (isMountedRef.current) {
+              loadTasks();
+            }
           })
           .on('broadcast', { event: 'task_deleted' }, (payload) => {
             console.log('[RealtimeProvider] Task deleted:', payload);
-            loadTasks();
+            if (isMountedRef.current) {
+              loadTasks();
+            }
           })
           .subscribe((status, err) => {
             console.log('[RealtimeProvider] Tasks channel status:', status);
+            if (!isMountedRef.current) return;
+            
             if (status === 'SUBSCRIBED') {
               console.log('[RealtimeProvider] Tasks channel connected');
               updateConnectionStatus();
@@ -143,18 +159,26 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         shopChannel
           .on('broadcast', { event: 'shopping_item_created' }, (payload) => {
             console.log('[RealtimeProvider] Shopping item created:', payload);
-            loadShop();
+            if (isMountedRef.current) {
+              loadShop();
+            }
           })
           .on('broadcast', { event: 'shopping_item_updated' }, (payload) => {
             console.log('[RealtimeProvider] Shopping item updated:', payload);
-            loadShop();
+            if (isMountedRef.current) {
+              loadShop();
+            }
           })
           .on('broadcast', { event: 'shopping_item_deleted' }, (payload) => {
             console.log('[RealtimeProvider] Shopping item deleted:', payload);
-            loadShop();
+            if (isMountedRef.current) {
+              loadShop();
+            }
           })
           .subscribe((status, err) => {
             console.log('[RealtimeProvider] Shopping channel status:', status);
+            if (!isMountedRef.current) return;
+            
             if (status === 'SUBSCRIBED') {
               console.log('[RealtimeProvider] Shopping channel connected');
               updateConnectionStatus();
@@ -182,18 +206,26 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         eventsChannel
           .on('broadcast', { event: 'event_created' }, (payload) => {
             console.log('[RealtimeProvider] Event created:', payload);
-            loadEvents();
+            if (isMountedRef.current) {
+              loadEvents();
+            }
           })
           .on('broadcast', { event: 'event_updated' }, (payload) => {
             console.log('[RealtimeProvider] Event updated:', payload);
-            loadEvents();
+            if (isMountedRef.current) {
+              loadEvents();
+            }
           })
           .on('broadcast', { event: 'event_deleted' }, (payload) => {
             console.log('[RealtimeProvider] Event deleted:', payload);
-            loadEvents();
+            if (isMountedRef.current) {
+              loadEvents();
+            }
           })
           .subscribe((status, err) => {
             console.log('[RealtimeProvider] Events channel status:', status);
+            if (!isMountedRef.current) return;
+            
             if (status === 'SUBSCRIBED') {
               console.log('[RealtimeProvider] Events channel connected');
               updateConnectionStatus();
@@ -212,12 +244,16 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       isSubscribingRef.current = false;
     } catch (error) {
       console.error('[RealtimeProvider] Error setting up subscriptions:', error);
-      setConnectionStatus('error');
+      if (isMountedRef.current) {
+        setConnectionStatus('error');
+      }
       isSubscribingRef.current = false;
     }
   };
 
   const updateConnectionStatus = () => {
+    if (!isMountedRef.current) return;
+    
     const tasksConnected = tasksChannelRef.current?.state === 'joined';
     const shopConnected = shopChannelRef.current?.state === 'joined';
     const eventsConnected = eventsChannelRef.current?.state === 'joined';
@@ -229,8 +265,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loadTasks = async () => {
-    if (!user?.householdId) {
-      console.log('[RealtimeProvider] No household ID for loading tasks');
+    if (!user?.householdId || !isMountedRef.current) {
+      console.log('[RealtimeProvider] No household ID or component unmounted, skipping task load');
       return;
     }
     
@@ -247,7 +283,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      if (data) {
+      if (data && isMountedRef.current) {
         console.log('[RealtimeProvider] Loaded', data.length, 'tasks');
         setTasks(data);
       }
@@ -257,8 +293,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loadShop = async () => {
-    if (!user?.householdId) {
-      console.log('[RealtimeProvider] No household ID for loading shopping items');
+    if (!user?.householdId || !isMountedRef.current) {
+      console.log('[RealtimeProvider] No household ID or component unmounted, skipping shopping load');
       return;
     }
     
@@ -275,7 +311,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      if (data) {
+      if (data && isMountedRef.current) {
         console.log('[RealtimeProvider] Loaded', data.length, 'shopping items');
         setShoppingItems(data);
       }
@@ -285,8 +321,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loadEvents = async () => {
-    if (!user?.householdId) {
-      console.log('[RealtimeProvider] No household ID for loading events');
+    if (!user?.householdId || !isMountedRef.current) {
+      console.log('[RealtimeProvider] No household ID or component unmounted, skipping events load');
       return;
     }
     
@@ -303,7 +339,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      if (data) {
+      if (data && isMountedRef.current) {
         console.log('[RealtimeProvider] Loaded', data.length, 'events');
         setEvents(data);
       }

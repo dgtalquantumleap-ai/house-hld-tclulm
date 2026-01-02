@@ -33,16 +33,26 @@ export default function TasksScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refreshTasks();
-    setRefreshing(false);
+    try {
+      await refreshTasks();
+    } catch (error) {
+      console.error('Error refreshing tasks:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
-    const { error } = await updateTask(taskId, { status: newStatus });
-    
-    if (error) {
-      Alert.alert('Error', error);
+    try {
+      const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+      const { error } = await updateTask(taskId, { status: newStatus });
+      
+      if (error) {
+        Alert.alert('Error', error);
+      }
+    } catch (error: any) {
+      console.error('Error toggling task status:', error);
+      Alert.alert('Error', 'Failed to update task status');
     }
   };
 
@@ -68,6 +78,9 @@ export default function TasksScreen() {
         setNewTaskDescription('');
         setShowAddModal(false);
       }
+    } catch (error: any) {
+      console.error('Error creating task:', error);
+      Alert.alert('Error', 'Failed to create task');
     } finally {
       setIsSubmitting(false);
     }
@@ -83,9 +96,14 @@ export default function TasksScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const { error } = await deleteTask(taskId);
-            if (error) {
-              Alert.alert('Error', error);
+            try {
+              const { error } = await deleteTask(taskId);
+              if (error) {
+                Alert.alert('Error', error);
+              }
+            } catch (error: any) {
+              console.error('Error deleting task:', error);
+              Alert.alert('Error', 'Failed to delete task');
             }
           },
         },
@@ -93,8 +111,9 @@ export default function TasksScreen() {
     );
   };
 
-  const pendingTasks = tasks.filter(t => t.status !== 'completed');
-  const completedTasks = tasks.filter(t => t.status === 'completed');
+  // Safely filter tasks with null checks
+  const pendingTasks = (tasks || []).filter(t => t && t.status !== 'completed');
+  const completedTasks = (tasks || []).filter(t => t && t.status === 'completed');
 
   const canCreateTask = user?.role === 'Adult' || user?.role === 'Parent';
 
@@ -274,7 +293,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'android' ? 60 : 60,
     paddingBottom: 16,
   },
   title: {

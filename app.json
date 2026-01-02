@@ -18,8 +18,9 @@
       "bundleIdentifier": "com.househld.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "HOUSEHLD needs access to your camera to take photos for your profile.",
-        "NSPhotoLibraryUsageDescription": "HOUSEHLD needs access to your photo library to select photos for your profile.",
+        "NSCameraUsageDescription": "HOUSEHLD needs access to your camera to take photos for your profile and household activities.",
+        "NSPhotoLibraryUsageDescription": "HOUSEHLD needs access to your photo library to select photos for your profile and household activities.",
+        "NSPhotoLibraryAddUsageDescription": "HOUSEHLD needs permission to save photos to your photo library.",
         "UILaunchScreen": {
           "UIImageName": "SplashScreen",
           "UIColorName": "SplashScreenBackground"
@@ -38,7 +39,8 @@
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
       ]
     },
     "web": {
