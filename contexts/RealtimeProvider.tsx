@@ -314,43 +314,43 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // CRITICAL FIX: Add null checks to ALL cases to prevent "Cannot read property 'id' of undefined"
+  // CRITICAL FIX: Add explicit null checks to ALL cases to prevent "Cannot read property 'id' of undefined"
   const handleTasksChange = useCallback((eventType: string, newRecord: any, oldRecord: any) => {
     if (!isMountedRef.current) return;
 
     setTasks(prev => {
       switch (eventType) {
         case 'INSERT':
+          console.log('[RealtimeProvider] Inserting task...');
           // CRITICAL: Check if newRecord and id exist
-          if (!newRecord?.id) {
-            console.warn('[RealtimeProvider] INSERT: Invalid task record (missing id)');
+          if (!newRecord || !newRecord.id) {
+            console.log('[RealtimeProvider] Invalid insert record, skipping');
             return prev;
           }
           // Check if already exists (prevent duplicates from optimistic updates)
-          if (prev.some(t => t?.id === newRecord.id)) {
-            console.log('[RealtimeProvider] Task already exists (optimistic), skipping:', newRecord.id);
+          if (prev.some(t => t && t.id === newRecord.id)) {
+            console.log('[RealtimeProvider] Record already exists, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Adding new task:', newRecord.id);
           return [newRecord, ...prev];
         
         case 'UPDATE':
+          console.log('[RealtimeProvider] Updating task...');
           // CRITICAL: Check if newRecord and id exist
-          if (!newRecord?.id) {
-            console.warn('[RealtimeProvider] UPDATE: Invalid task record (missing id)');
+          if (!newRecord || !newRecord.id) {
+            console.log('[RealtimeProvider] Invalid update record, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Updating task:', newRecord.id);
-          return prev.map(t => (t?.id === newRecord.id ? newRecord : t));
+          return prev.map(t => (t && t.id === newRecord.id ? newRecord : t));
         
         case 'DELETE':
+          console.log('[RealtimeProvider] Deleting task...');
           // CRITICAL: Check if oldRecord and id exist
-          if (!oldRecord?.id) {
-            console.warn('[RealtimeProvider] DELETE: Invalid task record (missing id)');
+          if (!oldRecord || !oldRecord.id) {
+            console.log('[RealtimeProvider] Invalid delete record, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Deleting task:', oldRecord.id);
-          return prev.filter(t => t?.id !== oldRecord.id);
+          return prev.filter(t => t && t.id !== oldRecord.id);
         
         default:
           return prev;
@@ -364,36 +364,36 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     setShoppingItems(prev => {
       switch (eventType) {
         case 'INSERT':
+          console.log('[RealtimeProvider] Inserting shopping item...');
           // CRITICAL: Check if newRecord and id exist
-          if (!newRecord?.id) {
-            console.warn('[RealtimeProvider] INSERT: Invalid shopping item (missing id)');
+          if (!newRecord || !newRecord.id) {
+            console.log('[RealtimeProvider] Invalid insert record, skipping');
             return prev;
           }
           // Check if already exists (prevent duplicates from optimistic updates)
-          if (prev.some(i => i?.id === newRecord.id)) {
-            console.log('[RealtimeProvider] Shopping item already exists (optimistic), skipping:', newRecord.id);
+          if (prev.some(i => i && i.id === newRecord.id)) {
+            console.log('[RealtimeProvider] Record already exists, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Adding new shopping item:', newRecord.id);
           return [newRecord, ...prev];
         
         case 'UPDATE':
+          console.log('[RealtimeProvider] Updating shopping item...');
           // CRITICAL: Check if newRecord and id exist
-          if (!newRecord?.id) {
-            console.warn('[RealtimeProvider] UPDATE: Invalid shopping item (missing id)');
+          if (!newRecord || !newRecord.id) {
+            console.log('[RealtimeProvider] Invalid update record, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Updating shopping item:', newRecord.id);
-          return prev.map(i => (i?.id === newRecord.id ? newRecord : i));
+          return prev.map(i => (i && i.id === newRecord.id ? newRecord : i));
         
         case 'DELETE':
+          console.log('[RealtimeProvider] Deleting shopping item...');
           // CRITICAL: Check if oldRecord and id exist
-          if (!oldRecord?.id) {
-            console.warn('[RealtimeProvider] DELETE: Invalid shopping item (missing id)');
+          if (!oldRecord || !oldRecord.id) {
+            console.log('[RealtimeProvider] Invalid delete record, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Deleting shopping item:', oldRecord.id);
-          return prev.filter(i => i?.id !== oldRecord.id);
+          return prev.filter(i => i && i.id !== oldRecord.id);
         
         default:
           return prev;
@@ -407,36 +407,36 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     setEvents(prev => {
       switch (eventType) {
         case 'INSERT':
+          console.log('[RealtimeProvider] Inserting event...');
           // CRITICAL: Check if newRecord and id exist
-          if (!newRecord?.id) {
-            console.warn('[RealtimeProvider] INSERT: Invalid event (missing id)');
+          if (!newRecord || !newRecord.id) {
+            console.log('[RealtimeProvider] Invalid insert record, skipping');
             return prev;
           }
           // Check if already exists (prevent duplicates from optimistic updates)
-          if (prev.some(e => e?.id === newRecord.id)) {
-            console.log('[RealtimeProvider] Event already exists (optimistic), skipping:', newRecord.id);
+          if (prev.some(e => e && e.id === newRecord.id)) {
+            console.log('[RealtimeProvider] Record already exists, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Adding new event:', newRecord.id);
           return [newRecord, ...prev];
         
         case 'UPDATE':
+          console.log('[RealtimeProvider] Updating event...');
           // CRITICAL: Check if newRecord and id exist
-          if (!newRecord?.id) {
-            console.warn('[RealtimeProvider] UPDATE: Invalid event (missing id)');
+          if (!newRecord || !newRecord.id) {
+            console.log('[RealtimeProvider] Invalid update record, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Updating event:', newRecord.id);
-          return prev.map(e => (e?.id === newRecord.id ? newRecord : e));
+          return prev.map(e => (e && e.id === newRecord.id ? newRecord : e));
         
         case 'DELETE':
+          console.log('[RealtimeProvider] Deleting event...');
           // CRITICAL: Check if oldRecord and id exist
-          if (!oldRecord?.id) {
-            console.warn('[RealtimeProvider] DELETE: Invalid event (missing id)');
+          if (!oldRecord || !oldRecord.id) {
+            console.log('[RealtimeProvider] Invalid delete record, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Deleting event:', oldRecord.id);
-          return prev.filter(e => e?.id !== oldRecord.id);
+          return prev.filter(e => e && e.id !== oldRecord.id);
         
         default:
           return prev;
@@ -450,36 +450,36 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     setMeals(prev => {
       switch (eventType) {
         case 'INSERT':
+          console.log('[RealtimeProvider] Inserting meal...');
           // CRITICAL: Check if newRecord and id exist
-          if (!newRecord?.id) {
-            console.warn('[RealtimeProvider] INSERT: Invalid meal (missing id)');
+          if (!newRecord || !newRecord.id) {
+            console.log('[RealtimeProvider] Invalid insert record, skipping');
             return prev;
           }
           // Check if already exists (prevent duplicates from optimistic updates)
-          if (prev.some(m => m?.id === newRecord.id)) {
-            console.log('[RealtimeProvider] Meal already exists (optimistic), skipping:', newRecord.id);
+          if (prev.some(m => m && m.id === newRecord.id)) {
+            console.log('[RealtimeProvider] Record already exists, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Adding new meal:', newRecord.id);
           return [newRecord, ...prev];
         
         case 'UPDATE':
+          console.log('[RealtimeProvider] Updating meal...');
           // CRITICAL: Check if newRecord and id exist
-          if (!newRecord?.id) {
-            console.warn('[RealtimeProvider] UPDATE: Invalid meal (missing id)');
+          if (!newRecord || !newRecord.id) {
+            console.log('[RealtimeProvider] Invalid update record, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Updating meal:', newRecord.id);
-          return prev.map(m => (m?.id === newRecord.id ? newRecord : m));
+          return prev.map(m => (m && m.id === newRecord.id ? newRecord : m));
         
         case 'DELETE':
+          console.log('[RealtimeProvider] Deleting meal...');
           // CRITICAL: Check if oldRecord and id exist
-          if (!oldRecord?.id) {
-            console.warn('[RealtimeProvider] DELETE: Invalid meal (missing id)');
+          if (!oldRecord || !oldRecord.id) {
+            console.log('[RealtimeProvider] Invalid delete record, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Deleting meal:', oldRecord.id);
-          return prev.filter(m => m?.id !== oldRecord.id);
+          return prev.filter(m => m && m.id !== oldRecord.id);
         
         default:
           return prev;
@@ -493,36 +493,36 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     setPolls(prev => {
       switch (eventType) {
         case 'INSERT':
+          console.log('[RealtimeProvider] Inserting poll...');
           // CRITICAL: Check if newRecord and id exist
-          if (!newRecord?.id) {
-            console.warn('[RealtimeProvider] INSERT: Invalid poll (missing id)');
+          if (!newRecord || !newRecord.id) {
+            console.log('[RealtimeProvider] Invalid insert record, skipping');
             return prev;
           }
           // Check if already exists (prevent duplicates from optimistic updates)
-          if (prev.some(p => p?.id === newRecord.id)) {
-            console.log('[RealtimeProvider] Poll already exists (optimistic), skipping:', newRecord.id);
+          if (prev.some(p => p && p.id === newRecord.id)) {
+            console.log('[RealtimeProvider] Record already exists, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Adding new poll:', newRecord.id);
           return [newRecord, ...prev];
         
         case 'UPDATE':
+          console.log('[RealtimeProvider] Updating poll...');
           // CRITICAL: Check if newRecord and id exist
-          if (!newRecord?.id) {
-            console.warn('[RealtimeProvider] UPDATE: Invalid poll (missing id)');
+          if (!newRecord || !newRecord.id) {
+            console.log('[RealtimeProvider] Invalid update record, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Updating poll:', newRecord.id);
-          return prev.map(p => (p?.id === newRecord.id ? newRecord : p));
+          return prev.map(p => (p && p.id === newRecord.id ? newRecord : p));
         
         case 'DELETE':
+          console.log('[RealtimeProvider] Deleting poll...');
           // CRITICAL: Check if oldRecord and id exist
-          if (!oldRecord?.id) {
-            console.warn('[RealtimeProvider] DELETE: Invalid poll (missing id)');
+          if (!oldRecord || !oldRecord.id) {
+            console.log('[RealtimeProvider] Invalid delete record, skipping');
             return prev;
           }
-          console.log('[RealtimeProvider] Deleting poll:', oldRecord.id);
-          return prev.filter(p => p?.id !== oldRecord.id);
+          return prev.filter(p => p && p.id !== oldRecord.id);
         
         default:
           return prev;
