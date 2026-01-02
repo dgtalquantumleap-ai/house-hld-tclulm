@@ -143,12 +143,12 @@ export function useShoppingList() {
         dbUpdates.purchased_at = updates.purchased ? new Date().toISOString() : null;
       }
 
+      // Remove .single() to avoid "Cannot coerce the result to a single JSON object" error
       const { data, error } = await supabase
         .from('shopping_items')
         .update(dbUpdates)
         .eq('id', itemId)
-        .select()
-        .single();
+        .select();
 
       if (error) {
         console.error('useShoppingList: Error updating item:', error);
@@ -157,8 +157,15 @@ export function useShoppingList() {
         return { data: null, error: error.message };
       }
 
+      // Check if any rows were updated
+      if (!data || data.length === 0) {
+        console.error('useShoppingList: Item not found or update blocked by RLS');
+        await loadItems();
+        return { data: null, error: 'Item not found or you do not have permission to update it' };
+      }
+
       console.log('useShoppingList: Item updated successfully');
-      return { data, error: null };
+      return { data: data[0], error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error updating item:', err);
       await loadItems();
@@ -184,6 +191,7 @@ export function useShoppingList() {
       }));
 
       // Then update database
+      // Remove .single() to avoid "Cannot coerce the result to a single JSON object" error
       const { data, error } = await supabase
         .from('shopping_items')
         .update({ 
@@ -192,8 +200,7 @@ export function useShoppingList() {
           purchased_at: purchased ? new Date().toISOString() : null,
         })
         .eq('id', itemId)
-        .select()
-        .single();
+        .select();
 
       if (error) {
         console.error('useShoppingList: Error updating item:', error);
@@ -202,8 +209,15 @@ export function useShoppingList() {
         return { data: null, error: error.message };
       }
 
+      // Check if any rows were updated
+      if (!data || data.length === 0) {
+        console.error('useShoppingList: Item not found or update blocked by RLS');
+        await loadItems();
+        return { data: null, error: 'Item not found or you do not have permission to update it' };
+      }
+
       console.log('useShoppingList: Item updated successfully');
-      return { data, error: null };
+      return { data: data[0], error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error updating item:', err);
       await loadItems();

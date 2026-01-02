@@ -100,7 +100,7 @@ export default function WelcomeScreen() {
           <View style={styles.valueCard}>
             <Text style={styles.valueHeading}>Create your household and:</Text>
             <View style={styles.featureList}>
-              {valueFeatures.map((feature) => (
+              {valueFeatures.map((feature, index) => (
                 <View key={feature.id} style={styles.featureListItem}>
                   <Text style={styles.bullet}>•</Text>
                   <Text style={styles.featureListText}>{feature.text}</Text>
@@ -115,7 +115,7 @@ export default function WelcomeScreen() {
 
           {/* FEATURE GRID */}
           <View style={styles.featureGrid}>
-            {features.map((feature) => (
+            {features.map((feature, index) => (
               <View key={feature.id} style={styles.featureItem}>
                 <View style={[styles.featureIconContainer, { backgroundColor: `${feature.color}15` }]}>
                   <IconSymbol

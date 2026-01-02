@@ -162,12 +162,12 @@ export function useEvents() {
       if (updates.repeat !== undefined) dbUpdates.repeat = updates.repeat;
       if (updates.confirmationStatus !== undefined) dbUpdates.confirmation_status = updates.confirmationStatus;
 
+      // Remove .single() to avoid "Cannot coerce the result to a single JSON object" error
       const { data, error } = await supabase
         .from('household_events')
         .update(dbUpdates)
         .eq('id', eventId)
-        .select()
-        .single();
+        .select();
 
       if (error) {
         console.error('useEvents: Error updating event:', error);
@@ -176,8 +176,15 @@ export function useEvents() {
         return { data: null, error: error.message };
       }
 
+      // Check if any rows were updated
+      if (!data || data.length === 0) {
+        console.error('useEvents: Event not found or update blocked by RLS');
+        await loadEvents();
+        return { data: null, error: 'Event not found or you do not have permission to update it' };
+      }
+
       console.log('useEvents: Event updated successfully');
-      return { data, error: null };
+      return { data: data[0], error: null };
     } catch (err: any) {
       console.error('useEvents: Error updating event:', err);
       await loadEvents();

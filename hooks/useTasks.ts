@@ -163,12 +163,13 @@ export function useTasks() {
         }
       }
 
+      // Remove .single() to avoid "Cannot coerce the result to a single JSON object" error
+      // This error occurs when the query returns 0 rows (task not found or RLS policy blocks it)
       const { data, error } = await supabase
         .from('tasks')
         .update(dbUpdates)
         .eq('id', taskId)
-        .select()
-        .single();
+        .select();
 
       if (error) {
         console.error('useTasks: Error updating task:', error);
@@ -177,8 +178,15 @@ export function useTasks() {
         return { data: null, error: error.message };
       }
 
+      // Check if any rows were updated
+      if (!data || data.length === 0) {
+        console.error('useTasks: Task not found or update blocked by RLS');
+        await loadTasks();
+        return { data: null, error: 'Task not found or you do not have permission to update it' };
+      }
+
       console.log('useTasks: Task updated successfully');
-      return { data, error: null };
+      return { data: data[0], error: null };
     } catch (err: any) {
       console.error('useTasks: Error updating task:', err);
       await loadTasks();
