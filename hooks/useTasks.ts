@@ -7,11 +7,11 @@ import { useRealtimeData } from '@/contexts/RealtimeProvider';
 
 export function useTasks() {
   const { user } = useAuth();
-  const { tasks: realtimeTasks } = useRealtimeData();
+  const { tasks: realtimeTasks, refreshAll } = useRealtimeData();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Use realtime data from provider
+  // Sync with realtime data
   useEffect(() => {
     if (realtimeTasks) {
       const mappedTasks = realtimeTasks.map((task: any) => ({
@@ -33,51 +33,36 @@ export function useTasks() {
     }
   }, [realtimeTasks]);
 
-  const loadTasks = useCallback(async () => {
-    if (!user?.householdId) return;
-    
-    try {
-      console.log('useTasks: Loading tasks');
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('household_id', user.householdId)
-        .order('due_date', { ascending: true });
-      
-      if (error) throw error;
-      
-      if (data) {
-        const mappedTasks = data.map((task: any) => ({
-          id: task.id,
-          householdId: task.household_id,
-          title: task.title,
-          description: task.description,
-          assignedToUserId: task.assigned_to_user_id,
-          frequency: task.frequency,
-          dueDate: task.due_date,
-          status: task.status,
-          createdByUserId: task.created_by_user_id,
-          completedAt: task.completed_at,
-          createdAt: task.created_at,
-          updatedAt: task.updated_at,
-        }));
-        setTasks(mappedTasks);
-      }
-    } catch (err: any) {
-      console.error('useTasks: Error loading tasks:', err);
-    }
-  }, [user?.householdId]);
-
   const refreshTasks = useCallback(async () => {
-    await loadTasks();
-  }, [loadTasks]);
+    await refreshAll();
+  }, [refreshAll]);
 
   const createTask = useCallback(async (taskData: Partial<Task>) => {
     try {
       console.log('useTasks: Creating task:', taskData.title);
       if (!user?.householdId) throw new Error('No household selected');
 
-      // Perform database insert first
+      // Generate temporary ID for optimistic update
+      const tempId = `temp-${Date.now()}`;
+      const optimisticTask: Task = {
+        id: tempId,
+        householdId: user.householdId,
+        title: taskData.title || '',
+        description: taskData.description,
+        assignedToUserId: taskData.assignedToUserId,
+        frequency: taskData.frequency || 'one-time',
+        dueDate: taskData.dueDate,
+        status: taskData.status || 'pending',
+        createdByUserId: user.id,
+        completedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Optimistic update - add immediately to UI
+      setTasks(prev => [optimisticTask, ...prev]);
+
+      // Perform database insert
       const { data, error } = await supabase
         .from('tasks')
         .insert([{
@@ -95,28 +80,33 @@ export function useTasks() {
 
       if (error) {
         console.error('useTasks: Error creating task:', error);
+        // Rollback optimistic update
+        setTasks(prev => prev.filter(t => t.id !== tempId));
         return { data: null, error: error.message };
       }
 
       console.log('useTasks: Task created successfully');
       
-      // Add to state immediately after successful insert
-      const newTask: Task = {
-        id: data.id,
-        householdId: data.household_id,
-        title: data.title,
-        description: data.description,
-        assignedToUserId: data.assigned_to_user_id,
-        frequency: data.frequency,
-        dueDate: data.due_date,
-        status: data.status,
-        createdByUserId: data.created_by_user_id,
-        completedAt: data.completed_at,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
-      
-      setTasks(prev => [newTask, ...prev]);
+      // Replace optimistic task with real data
+      setTasks(prev => prev.map(t => {
+        if (t.id === tempId) {
+          return {
+            id: data.id,
+            householdId: data.household_id,
+            title: data.title,
+            description: data.description,
+            assignedToUserId: data.assigned_to_user_id,
+            frequency: data.frequency,
+            dueDate: data.due_date,
+            status: data.status,
+            createdByUserId: data.created_by_user_id,
+            completedAt: data.completed_at,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at,
+          };
+        }
+        return t;
+      }));
       
       return { data, error: null };
     } catch (err: any) {
@@ -129,6 +119,12 @@ export function useTasks() {
     try {
       console.log('useTasks: Updating task:', taskId);
       
+      // Store original task for rollback
+      const originalTask = tasks.find(t => t.id === taskId);
+      if (!originalTask) {
+        return { data: null, error: 'Task not found' };
+      }
+
       // Optimistic update - update UI first
       setTasks(prev => prev.map(task => {
         if (task.id === taskId) {
@@ -163,8 +159,6 @@ export function useTasks() {
         }
       }
 
-      // Remove .single() to avoid "Cannot coerce the result to a single JSON object" error
-      // This error occurs when the query returns 0 rows (task not found or RLS policy blocks it)
       const { data, error } = await supabase
         .from('tasks')
         .update(dbUpdates)
@@ -173,15 +167,14 @@ export function useTasks() {
 
       if (error) {
         console.error('useTasks: Error updating task:', error);
-        // Rollback on error - reload from server
-        await loadTasks();
+        // Rollback on error - restore original task
+        setTasks(prev => prev.map(t => t.id === taskId ? originalTask : t));
         return { data: null, error: error.message };
       }
 
-      // Check if any rows were updated
       if (!data || data.length === 0) {
         console.error('useTasks: Task not found or update blocked by RLS');
-        await loadTasks();
+        setTasks(prev => prev.map(t => t.id === taskId ? originalTask : t));
         return { data: null, error: 'Task not found or you do not have permission to update it' };
       }
 
@@ -189,17 +182,21 @@ export function useTasks() {
       return { data: data[0], error: null };
     } catch (err: any) {
       console.error('useTasks: Error updating task:', err);
-      await loadTasks();
       return { data: null, error: err.message };
     }
-  }, [loadTasks]);
+  }, [tasks]);
 
   const deleteTask = useCallback(async (taskId: string) => {
     try {
       console.log('useTasks: Deleting task:', taskId);
       
-      // Optimistic delete - remove from UI first
+      // Store task for rollback
       const taskToDelete = tasks.find(t => t.id === taskId);
+      if (!taskToDelete) {
+        return { error: 'Task not found' };
+      }
+
+      // Optimistic delete - remove from UI first
       setTasks(prev => prev.filter(t => t.id !== taskId));
 
       // Then delete from database
@@ -210,8 +207,8 @@ export function useTasks() {
 
       if (error) {
         console.error('useTasks: Error deleting task:', error);
-        // Rollback on error - reload to restore consistency
-        await loadTasks();
+        // Rollback on error - restore task
+        setTasks(prev => [taskToDelete, ...prev]);
         return { error: error.message };
       }
 
@@ -219,10 +216,9 @@ export function useTasks() {
       return { error: null };
     } catch (err: any) {
       console.error('useTasks: Error deleting task:', err);
-      await loadTasks();
       return { error: err.message };
     }
-  }, [tasks, loadTasks]);
+  }, [tasks]);
 
   return {
     tasks,

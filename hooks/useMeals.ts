@@ -1,62 +1,41 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Meal, MealIngredient } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtimeData } from '@/contexts/RealtimeProvider';
 
 export function useMeals() {
   const { user } = useAuth();
+  const { meals: realtimeMeals, refreshAll } = useRealtimeData();
   const [meals, setMeals] = useState<Meal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Sync with realtime data
   useEffect(() => {
-    if (user?.householdId) {
-      loadMeals();
-    } else {
+    if (realtimeMeals) {
+      const mappedMeals = realtimeMeals.map((meal: any) => ({
+        id: meal.id,
+        householdId: meal.household_id,
+        title: meal.title,
+        description: meal.description,
+        mealDate: meal.meal_date,
+        mealTime: meal.meal_time,
+        assignedToUserId: meal.assigned_to_user_id,
+        createdByUserId: meal.created_by_user_id,
+        createdAt: meal.created_at,
+        updatedAt: meal.updated_at,
+      }));
+      setMeals(mappedMeals);
       setIsLoading(false);
     }
-  }, [user?.householdId]);
+  }, [realtimeMeals]);
 
-  const loadMeals = async () => {
-    if (!user?.householdId) return;
-    
-    try {
-      console.log('useMeals: Loading meals');
-      const { data, error } = await supabase
-        .from('meals')
-        .select('*')
-        .eq('household_id', user.householdId)
-        .order('meal_date', { ascending: true });
-      
-      if (error) throw error;
-      
-      if (data) {
-        const mappedMeals = data.map((meal: any) => ({
-          id: meal.id,
-          householdId: meal.household_id,
-          title: meal.title,
-          description: meal.description,
-          mealDate: meal.meal_date,
-          mealTime: meal.meal_time,
-          assignedToUserId: meal.assigned_to_user_id,
-          createdByUserId: meal.created_by_user_id,
-          createdAt: meal.created_at,
-          updatedAt: meal.updated_at,
-        }));
-        setMeals(mappedMeals);
-      }
-    } catch (err: any) {
-      console.error('useMeals: Error loading meals:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const refreshMeals = useCallback(async () => {
+    await refreshAll();
+  }, [refreshAll]);
 
-  const refreshMeals = async () => {
-    await loadMeals();
-  };
-
-  const createMeal = async (
+  const createMeal = useCallback(async (
     title: string,
     mealDate: string,
     mealTime?: string,
@@ -67,6 +46,24 @@ export function useMeals() {
     try {
       console.log('useMeals: Creating meal:', title);
       if (!user?.householdId) throw new Error('No household');
+
+      // Generate temporary ID for optimistic update
+      const tempId = `temp-${Date.now()}`;
+      const optimisticMeal: Meal = {
+        id: tempId,
+        householdId: user.householdId,
+        title,
+        description,
+        mealDate,
+        mealTime,
+        assignedToUserId,
+        createdByUserId: user.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Optimistic update - add immediately to UI
+      setMeals(prev => [optimisticMeal, ...prev]);
 
       const { data: mealData, error: mealError } = await supabase
         .from('meals')
@@ -82,7 +79,12 @@ export function useMeals() {
         .select()
         .single();
 
-      if (mealError) throw mealError;
+      if (mealError) {
+        console.error('useMeals: Error creating meal:', mealError);
+        // Rollback optimistic update
+        setMeals(prev => prev.filter(m => m.id !== tempId));
+        return { data: null, error: mealError.message };
+      }
 
       // Add ingredients if provided
       if (ingredients && ingredients.length > 0) {
@@ -96,7 +98,9 @@ export function useMeals() {
           .from('meal_ingredients')
           .insert(ingredientsData);
 
-        if (ingredientsError) throw ingredientsError;
+        if (ingredientsError) {
+          console.error('useMeals: Error adding ingredients:', ingredientsError);
+        }
 
         // Optionally add to shopping list
         const shoppingItems = ingredients.map(ing => ({
@@ -124,22 +128,52 @@ export function useMeals() {
 
       console.log('useMeals: Meal created successfully');
       
-      // Refresh meals list
-      await loadMeals();
+      // Replace optimistic meal with real data
+      setMeals(prev => prev.map(m => {
+        if (m.id === tempId) {
+          return {
+            id: mealData.id,
+            householdId: mealData.household_id,
+            title: mealData.title,
+            description: mealData.description,
+            mealDate: mealData.meal_date,
+            mealTime: mealData.meal_time,
+            assignedToUserId: mealData.assigned_to_user_id,
+            createdByUserId: mealData.created_by_user_id,
+            createdAt: mealData.created_at,
+            updatedAt: mealData.updated_at,
+          };
+        }
+        return m;
+      }));
       
       return { data: mealData, error: null };
     } catch (error: any) {
       console.error('useMeals: Error creating meal:', error);
       return { data: null, error: error.message };
     }
-  };
+  }, [user]);
 
-  const updateMeal = async (
+  const updateMeal = useCallback(async (
     mealId: string,
     updates: Partial<Meal>
   ) => {
     try {
       console.log('useMeals: Updating meal:', mealId);
+
+      // Store original meal for rollback
+      const originalMeal = meals.find(m => m.id === mealId);
+      if (!originalMeal) {
+        return { error: 'Meal not found' };
+      }
+
+      // Optimistic update
+      setMeals(prev => prev.map(meal => {
+        if (meal.id === mealId) {
+          return { ...meal, ...updates };
+        }
+        return meal;
+      }));
 
       const dbUpdates: any = {};
       if (updates.title !== undefined) dbUpdates.title = updates.title;
@@ -153,42 +187,53 @@ export function useMeals() {
         .update(dbUpdates)
         .eq('id', mealId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('useMeals: Error updating meal:', error);
+        // Rollback on error
+        setMeals(prev => prev.map(m => m.id === mealId ? originalMeal : m));
+        return { error: error.message };
+      }
 
       console.log('useMeals: Meal updated successfully');
-      
-      // Refresh meals list
-      await loadMeals();
-      
       return { error: null };
     } catch (error: any) {
       console.error('useMeals: Error updating meal:', error);
       return { error: error.message };
     }
-  };
+  }, [meals]);
 
-  const deleteMeal = async (mealId: string) => {
+  const deleteMeal = useCallback(async (mealId: string) => {
     try {
       console.log('useMeals: Deleting meal:', mealId);
+
+      // Store meal for rollback
+      const mealToDelete = meals.find(m => m.id === mealId);
+      if (!mealToDelete) {
+        return { error: 'Meal not found' };
+      }
+
+      // Optimistic delete
+      setMeals(prev => prev.filter(m => m.id !== mealId));
 
       const { error } = await supabase
         .from('meals')
         .delete()
         .eq('id', mealId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('useMeals: Error deleting meal:', error);
+        // Rollback on error
+        setMeals(prev => [mealToDelete, ...prev]);
+        return { error: error.message };
+      }
 
       console.log('useMeals: Meal deleted successfully');
-      
-      // Refresh meals list
-      await loadMeals();
-      
       return { error: null };
     } catch (error: any) {
       console.error('useMeals: Error deleting meal:', error);
       return { error: error.message };
     }
-  };
+  }, [meals]);
 
   const getMealIngredients = async (mealId: string): Promise<MealIngredient[]> => {
     try {

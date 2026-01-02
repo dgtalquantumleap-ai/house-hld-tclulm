@@ -1,8 +1,7 @@
-
 {
   "expo": {
-    "name": "HOUSEHLD",
-    "slug": "househld",
+    "name": "House HLD",
+    "slug": "House HLD",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/d0b91751-d7d5-4486-a5c4-71cf4d50c705.png",
@@ -75,5 +74,6 @@
     "privacy": "public",
     "description": "A household management app for families and roommates. Manage tasks, shopping lists, events, and expenses together.",
     "githubUrl": "https://github.com/househld/app"
-  }
+  },
+  "scheme": "House HLD"
 }

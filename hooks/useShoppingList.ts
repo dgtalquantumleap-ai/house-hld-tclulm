@@ -7,11 +7,11 @@ import { useRealtimeData } from '@/contexts/RealtimeProvider';
 
 export function useShoppingList() {
   const { user } = useAuth();
-  const { shoppingItems: realtimeItems } = useRealtimeData();
+  const { shoppingItems: realtimeItems, refreshAll } = useRealtimeData();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Use realtime data from provider
+  // Sync with realtime data
   useEffect(() => {
     if (realtimeItems) {
       const mappedItems = realtimeItems.map((item: any) => ({
@@ -32,50 +32,35 @@ export function useShoppingList() {
     }
   }, [realtimeItems]);
 
-  const loadItems = useCallback(async () => {
-    if (!user?.householdId) return;
-    
-    try {
-      console.log('useShoppingList: Loading items');
-      const { data, error } = await supabase
-        .from('shopping_items')
-        .select('*')
-        .eq('household_id', user.householdId)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      if (data) {
-        const mappedItems = data.map((item: any) => ({
-          id: item.id,
-          householdId: item.household_id,
-          name: item.name,
-          quantity: item.quantity,
-          category: item.category,
-          addedByUserId: item.added_by_user_id,
-          purchased: item.purchased,
-          purchasedByUserId: item.purchased_by_user_id,
-          purchasedAt: item.purchased_at,
-          createdAt: item.created_at,
-          updatedAt: item.updated_at,
-        }));
-        setItems(mappedItems);
-      }
-    } catch (err: any) {
-      console.error('useShoppingList: Error loading items:', err);
-    }
-  }, [user?.householdId]);
-
   const refreshItems = useCallback(async () => {
-    await loadItems();
-  }, [loadItems]);
+    await refreshAll();
+  }, [refreshAll]);
 
   const addItem = useCallback(async (name: string, quantity?: string, category?: string) => {
     try {
       console.log('useShoppingList: Adding item:', name);
       if (!user?.householdId) throw new Error('No household selected');
 
-      // Perform database insert first
+      // Generate temporary ID for optimistic update
+      const tempId = `temp-${Date.now()}`;
+      const optimisticItem: ShoppingItem = {
+        id: tempId,
+        householdId: user.householdId,
+        name,
+        quantity,
+        category,
+        addedByUserId: user.id,
+        purchased: false,
+        purchasedByUserId: null,
+        purchasedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Optimistic update - add immediately to UI
+      setItems(prev => [optimisticItem, ...prev]);
+
+      // Perform database insert
       const { data, error } = await supabase
         .from('shopping_items')
         .insert([{
@@ -91,27 +76,32 @@ export function useShoppingList() {
 
       if (error) {
         console.error('useShoppingList: Error adding item:', error);
+        // Rollback optimistic update
+        setItems(prev => prev.filter(i => i.id !== tempId));
         return { data: null, error: error.message };
       }
 
       console.log('useShoppingList: Item added successfully');
       
-      // Add to state immediately after successful insert
-      const newItem: ShoppingItem = {
-        id: data.id,
-        householdId: data.household_id,
-        name: data.name,
-        quantity: data.quantity,
-        category: data.category,
-        addedByUserId: data.added_by_user_id,
-        purchased: data.purchased,
-        purchasedByUserId: data.purchased_by_user_id,
-        purchasedAt: data.purchased_at,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
-      
-      setItems(prev => [newItem, ...prev]);
+      // Replace optimistic item with real data
+      setItems(prev => prev.map(i => {
+        if (i.id === tempId) {
+          return {
+            id: data.id,
+            householdId: data.household_id,
+            name: data.name,
+            quantity: data.quantity,
+            category: data.category,
+            addedByUserId: data.added_by_user_id,
+            purchased: data.purchased,
+            purchasedByUserId: data.purchased_by_user_id,
+            purchasedAt: data.purchased_at,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at,
+          };
+        }
+        return i;
+      }));
       
       return { data, error: null };
     } catch (err: any) {
@@ -124,6 +114,12 @@ export function useShoppingList() {
     try {
       console.log('useShoppingList: Updating item:', itemId);
       
+      // Store original item for rollback
+      const originalItem = items.find(i => i.id === itemId);
+      if (!originalItem) {
+        return { data: null, error: 'Item not found' };
+      }
+
       // Optimistic update - update UI first
       setItems(prev => prev.map(item => {
         if (item.id === itemId) {
@@ -143,7 +139,6 @@ export function useShoppingList() {
         dbUpdates.purchased_at = updates.purchased ? new Date().toISOString() : null;
       }
 
-      // Remove .single() to avoid "Cannot coerce the result to a single JSON object" error
       const { data, error } = await supabase
         .from('shopping_items')
         .update(dbUpdates)
@@ -153,14 +148,13 @@ export function useShoppingList() {
       if (error) {
         console.error('useShoppingList: Error updating item:', error);
         // Rollback on error
-        await loadItems();
+        setItems(prev => prev.map(i => i.id === itemId ? originalItem : i));
         return { data: null, error: error.message };
       }
 
-      // Check if any rows were updated
       if (!data || data.length === 0) {
         console.error('useShoppingList: Item not found or update blocked by RLS');
-        await loadItems();
+        setItems(prev => prev.map(i => i.id === itemId ? originalItem : i));
         return { data: null, error: 'Item not found or you do not have permission to update it' };
       }
 
@@ -168,15 +162,20 @@ export function useShoppingList() {
       return { data: data[0], error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error updating item:', err);
-      await loadItems();
       return { data: null, error: err.message };
     }
-  }, [user, loadItems]);
+  }, [user, items]);
 
   const togglePurchased = useCallback(async (itemId: string, purchased: boolean) => {
     try {
       console.log('useShoppingList: Toggling purchased:', itemId, purchased);
       
+      // Store original item for rollback
+      const originalItem = items.find(i => i.id === itemId);
+      if (!originalItem) {
+        return { data: null, error: 'Item not found' };
+      }
+
       // Optimistic update - update UI first
       setItems(prev => prev.map(item => {
         if (item.id === itemId) {
@@ -191,7 +190,6 @@ export function useShoppingList() {
       }));
 
       // Then update database
-      // Remove .single() to avoid "Cannot coerce the result to a single JSON object" error
       const { data, error } = await supabase
         .from('shopping_items')
         .update({ 
@@ -205,14 +203,13 @@ export function useShoppingList() {
       if (error) {
         console.error('useShoppingList: Error updating item:', error);
         // Rollback on error
-        await loadItems();
+        setItems(prev => prev.map(i => i.id === itemId ? originalItem : i));
         return { data: null, error: error.message };
       }
 
-      // Check if any rows were updated
       if (!data || data.length === 0) {
         console.error('useShoppingList: Item not found or update blocked by RLS');
-        await loadItems();
+        setItems(prev => prev.map(i => i.id === itemId ? originalItem : i));
         return { data: null, error: 'Item not found or you do not have permission to update it' };
       }
 
@@ -220,17 +217,21 @@ export function useShoppingList() {
       return { data: data[0], error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error updating item:', err);
-      await loadItems();
       return { data: null, error: err.message };
     }
-  }, [user, loadItems]);
+  }, [user, items]);
 
   const deleteItem = useCallback(async (itemId: string) => {
     try {
       console.log('useShoppingList: Deleting item:', itemId);
       
-      // Optimistic delete - remove from UI first
+      // Store item for rollback
       const itemToDelete = items.find(i => i.id === itemId);
+      if (!itemToDelete) {
+        return { error: 'Item not found' };
+      }
+
+      // Optimistic delete - remove from UI first
       setItems(prev => prev.filter(i => i.id !== itemId));
 
       // Then delete from database
@@ -241,8 +242,8 @@ export function useShoppingList() {
 
       if (error) {
         console.error('useShoppingList: Error deleting item:', error);
-        // Rollback on error - reload to restore consistency
-        await loadItems();
+        // Rollback on error - restore item
+        setItems(prev => [itemToDelete, ...prev]);
         return { error: error.message };
       }
 
@@ -250,10 +251,9 @@ export function useShoppingList() {
       return { error: null };
     } catch (err: any) {
       console.error('useShoppingList: Error deleting item:', err);
-      await loadItems();
       return { error: err.message };
     }
-  }, [items, loadItems]);
+  }, [items]);
 
   return {
     items,

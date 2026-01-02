@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -8,8 +8,11 @@ interface RealtimeContextType {
   tasks: any[];
   shoppingItems: any[];
   events: any[];
+  meals: any[];
+  polls: any[];
   isConnected: boolean;
   connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
+  refreshAll: () => Promise<void>;
 }
 
 const RealtimeContext = createContext<RealtimeContextType | null>(null);
@@ -19,15 +22,30 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const [tasks, setTasks] = useState<any[]>([]);
   const [shoppingItems, setShoppingItems] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
+  const [meals, setMeals] = useState<any[]>([]);
+  const [polls, setPolls] = useState<any[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
   
-  // Use refs to track channels and prevent duplicate subscriptions
-  const tasksChannelRef = useRef<RealtimeChannel | null>(null);
-  const shopChannelRef = useRef<RealtimeChannel | null>(null);
-  const eventsChannelRef = useRef<RealtimeChannel | null>(null);
+  // Use a single channel ref for the household
+  const householdChannelRef = useRef<RealtimeChannel | null>(null);
   const isSubscribingRef = useRef(false);
   const isMountedRef = useRef(true);
+  const lastFetchRef = useRef<{ [key: string]: number }>({});
+
+  // Debounce data fetching to prevent excessive queries
+  const debouncedFetch = useCallback((key: string, fetchFn: () => Promise<void>, delay = 500) => {
+    const now = Date.now();
+    const lastFetch = lastFetchRef.current[key] || 0;
+    
+    if (now - lastFetch < delay) {
+      console.log(`[RealtimeProvider] Debouncing ${key} fetch`);
+      return;
+    }
+    
+    lastFetchRef.current[key] = now;
+    fetchFn();
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -37,6 +55,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       setTasks([]);
       setShoppingItems([]);
       setEvents([]);
+      setMeals([]);
+      setPolls([]);
       setIsConnected(false);
       setConnectionStatus('disconnected');
       
@@ -51,16 +71,17 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    console.log('[RealtimeProvider] Setting up subscriptions for household:', user.householdId);
+    console.log('[RealtimeProvider] ========================================');
+    console.log('[RealtimeProvider] Setting up realtime for household:', user.householdId);
+    console.log('[RealtimeProvider] ========================================');
+    
     isSubscribingRef.current = true;
     setConnectionStatus('connecting');
 
     // Initial data load
-    loadTasks();
-    loadShop();
-    loadEvents();
+    loadAllData();
 
-    // Setup realtime subscriptions with broadcast
+    // Setup realtime subscriptions
     setupRealtimeSubscriptions();
 
     return () => {
@@ -73,17 +94,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
   const cleanupChannels = () => {
     try {
-      if (tasksChannelRef.current) {
-        supabase.removeChannel(tasksChannelRef.current);
-        tasksChannelRef.current = null;
-      }
-      if (shopChannelRef.current) {
-        supabase.removeChannel(shopChannelRef.current);
-        shopChannelRef.current = null;
-      }
-      if (eventsChannelRef.current) {
-        supabase.removeChannel(eventsChannelRef.current);
-        eventsChannelRef.current = null;
+      if (householdChannelRef.current) {
+        console.log('[RealtimeProvider] Removing household channel');
+        supabase.removeChannel(householdChannelRef.current);
+        householdChannelRef.current = null;
       }
     } catch (error) {
       console.error('[RealtimeProvider] Error cleaning up channels:', error);
@@ -97,181 +111,278 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // Set auth token before subscribing
-      await supabase.realtime.setAuth();
-
-      // Tasks Channel - using broadcast with household-specific topic
-      if (!tasksChannelRef.current || tasksChannelRef.current.state === 'closed') {
-        const tasksChannel = supabase.channel(`household:${user.householdId}:tasks`, {
-          config: {
-            broadcast: { self: false, ack: false },
-            private: false,
-          },
-        });
-
-        tasksChannel
-          .on('broadcast', { event: 'task_created' }, (payload) => {
-            console.log('[RealtimeProvider] Task created:', payload);
-            if (isMountedRef.current) {
-              loadTasks();
-            }
-          })
-          .on('broadcast', { event: 'task_updated' }, (payload) => {
-            console.log('[RealtimeProvider] Task updated:', payload);
-            if (isMountedRef.current) {
-              loadTasks();
-            }
-          })
-          .on('broadcast', { event: 'task_deleted' }, (payload) => {
-            console.log('[RealtimeProvider] Task deleted:', payload);
-            if (isMountedRef.current) {
-              loadTasks();
-            }
-          })
-          .subscribe((status, err) => {
-            console.log('[RealtimeProvider] Tasks channel status:', status);
-            if (!isMountedRef.current) return;
-            
-            if (status === 'SUBSCRIBED') {
-              console.log('[RealtimeProvider] Tasks channel connected');
-              updateConnectionStatus();
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('[RealtimeProvider] Tasks channel error:', err);
-              setConnectionStatus('error');
-            } else if (status === 'CLOSED') {
-              console.log('[RealtimeProvider] Tasks channel closed');
-              setConnectionStatus('disconnected');
-            }
-          });
-
-        tasksChannelRef.current = tasksChannel;
+      // Clean up existing channel first
+      if (householdChannelRef.current) {
+        supabase.removeChannel(householdChannelRef.current);
+        householdChannelRef.current = null;
       }
 
-      // Shopping Channel - using broadcast with household-specific topic
-      if (!shopChannelRef.current || shopChannelRef.current.state === 'closed') {
-        const shopChannel = supabase.channel(`household:${user.householdId}:shopping`, {
-          config: {
-            broadcast: { self: false, ack: false },
-            private: false,
-          },
-        });
+      // Create a single channel for all household data
+      const channelName = `household:${user.householdId}:all`;
+      console.log('[RealtimeProvider] Creating channel:', channelName);
 
-        shopChannel
-          .on('broadcast', { event: 'shopping_item_created' }, (payload) => {
-            console.log('[RealtimeProvider] Shopping item created:', payload);
-            if (isMountedRef.current) {
-              loadShop();
-            }
-          })
-          .on('broadcast', { event: 'shopping_item_updated' }, (payload) => {
-            console.log('[RealtimeProvider] Shopping item updated:', payload);
-            if (isMountedRef.current) {
-              loadShop();
-            }
-          })
-          .on('broadcast', { event: 'shopping_item_deleted' }, (payload) => {
-            console.log('[RealtimeProvider] Shopping item deleted:', payload);
-            if (isMountedRef.current) {
-              loadShop();
-            }
-          })
-          .subscribe((status, err) => {
-            console.log('[RealtimeProvider] Shopping channel status:', status);
-            if (!isMountedRef.current) return;
-            
-            if (status === 'SUBSCRIBED') {
-              console.log('[RealtimeProvider] Shopping channel connected');
-              updateConnectionStatus();
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('[RealtimeProvider] Shopping channel error:', err);
-              setConnectionStatus('error');
-            } else if (status === 'CLOSED') {
-              console.log('[RealtimeProvider] Shopping channel closed');
-              setConnectionStatus('disconnected');
-            }
-          });
+      const channel = supabase.channel(channelName, {
+        config: {
+          broadcast: { self: false, ack: false },
+          private: false,
+        },
+      });
 
-        shopChannelRef.current = shopChannel;
-      }
+      // Subscribe to tasks changes
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `household_id=eq.${user.householdId}`,
+        },
+        (payload) => {
+          console.log('[RealtimeProvider] Tasks change:', payload.eventType);
+          handleTasksChange(payload);
+        }
+      );
 
-      // Events Channel - using broadcast with household-specific topic
-      if (!eventsChannelRef.current || eventsChannelRef.current.state === 'closed') {
-        const eventsChannel = supabase.channel(`household:${user.householdId}:events`, {
-          config: {
-            broadcast: { self: false, ack: false },
-            private: false,
-          },
-        });
+      // Subscribe to shopping items changes
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'shopping_items',
+          filter: `household_id=eq.${user.householdId}`,
+        },
+        (payload) => {
+          console.log('[RealtimeProvider] Shopping change:', payload.eventType);
+          handleShoppingChange(payload);
+        }
+      );
 
-        eventsChannel
-          .on('broadcast', { event: 'event_created' }, (payload) => {
-            console.log('[RealtimeProvider] Event created:', payload);
-            if (isMountedRef.current) {
-              loadEvents();
-            }
-          })
-          .on('broadcast', { event: 'event_updated' }, (payload) => {
-            console.log('[RealtimeProvider] Event updated:', payload);
-            if (isMountedRef.current) {
-              loadEvents();
-            }
-          })
-          .on('broadcast', { event: 'event_deleted' }, (payload) => {
-            console.log('[RealtimeProvider] Event deleted:', payload);
-            if (isMountedRef.current) {
-              loadEvents();
-            }
-          })
-          .subscribe((status, err) => {
-            console.log('[RealtimeProvider] Events channel status:', status);
-            if (!isMountedRef.current) return;
-            
-            if (status === 'SUBSCRIBED') {
-              console.log('[RealtimeProvider] Events channel connected');
-              updateConnectionStatus();
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('[RealtimeProvider] Events channel error:', err);
-              setConnectionStatus('error');
-            } else if (status === 'CLOSED') {
-              console.log('[RealtimeProvider] Events channel closed');
-              setConnectionStatus('disconnected');
-            }
-          });
+      // Subscribe to events changes
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'household_events',
+          filter: `household_id=eq.${user.householdId}`,
+        },
+        (payload) => {
+          console.log('[RealtimeProvider] Events change:', payload.eventType);
+          handleEventsChange(payload);
+        }
+      );
 
-        eventsChannelRef.current = eventsChannel;
-      }
+      // Subscribe to meals changes
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'meals',
+          filter: `household_id=eq.${user.householdId}`,
+        },
+        (payload) => {
+          console.log('[RealtimeProvider] Meals change:', payload.eventType);
+          handleMealsChange(payload);
+        }
+      );
 
+      // Subscribe to polls changes
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'polls',
+          filter: `household_id=eq.${user.householdId}`,
+        },
+        (payload) => {
+          console.log('[RealtimeProvider] Polls change:', payload.eventType);
+          handlePollsChange(payload);
+        }
+      );
+
+      // Subscribe to the channel
+      channel.subscribe((status, err) => {
+        console.log('[RealtimeProvider] Channel status:', status);
+        if (!isMountedRef.current) return;
+        
+        if (status === 'SUBSCRIBED') {
+          console.log('[RealtimeProvider] ✅ Successfully subscribed to realtime');
+          setIsConnected(true);
+          setConnectionStatus('connected');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[RealtimeProvider] ❌ Channel error:', err);
+          setConnectionStatus('error');
+          setIsConnected(false);
+        } else if (status === 'CLOSED') {
+          console.log('[RealtimeProvider] Channel closed');
+          setConnectionStatus('disconnected');
+          setIsConnected(false);
+        }
+      });
+
+      householdChannelRef.current = channel;
       isSubscribingRef.current = false;
     } catch (error) {
       console.error('[RealtimeProvider] Error setting up subscriptions:', error);
       if (isMountedRef.current) {
         setConnectionStatus('error');
+        setIsConnected(false);
       }
       isSubscribingRef.current = false;
     }
   };
 
-  const updateConnectionStatus = () => {
+  // Optimized change handlers that update state immediately
+  const handleTasksChange = useCallback((payload: any) => {
     if (!isMountedRef.current) return;
-    
-    const tasksConnected = tasksChannelRef.current?.state === 'joined';
-    const shopConnected = shopChannelRef.current?.state === 'joined';
-    const eventsConnected = eventsChannelRef.current?.state === 'joined';
-    
-    const allConnected = tasksConnected && shopConnected && eventsConnected;
-    
-    setIsConnected(allConnected);
-    setConnectionStatus(allConnected ? 'connected' : 'connecting');
+
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    setTasks(prev => {
+      switch (eventType) {
+        case 'INSERT':
+          // Check if already exists (prevent duplicates)
+          if (prev.some(t => t.id === newRecord.id)) {
+            return prev;
+          }
+          return [newRecord, ...prev];
+        
+        case 'UPDATE':
+          return prev.map(t => t.id === newRecord.id ? newRecord : t);
+        
+        case 'DELETE':
+          return prev.filter(t => t.id !== oldRecord.id);
+        
+        default:
+          return prev;
+      }
+    });
+  }, []);
+
+  const handleShoppingChange = useCallback((payload: any) => {
+    if (!isMountedRef.current) return;
+
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    setShoppingItems(prev => {
+      switch (eventType) {
+        case 'INSERT':
+          if (prev.some(i => i.id === newRecord.id)) {
+            return prev;
+          }
+          return [newRecord, ...prev];
+        
+        case 'UPDATE':
+          return prev.map(i => i.id === newRecord.id ? newRecord : i);
+        
+        case 'DELETE':
+          return prev.filter(i => i.id !== oldRecord.id);
+        
+        default:
+          return prev;
+      }
+    });
+  }, []);
+
+  const handleEventsChange = useCallback((payload: any) => {
+    if (!isMountedRef.current) return;
+
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    setEvents(prev => {
+      switch (eventType) {
+        case 'INSERT':
+          if (prev.some(e => e.id === newRecord.id)) {
+            return prev;
+          }
+          return [newRecord, ...prev];
+        
+        case 'UPDATE':
+          return prev.map(e => e.id === newRecord.id ? newRecord : e);
+        
+        case 'DELETE':
+          return prev.filter(e => e.id !== oldRecord.id);
+        
+        default:
+          return prev;
+      }
+    });
+  }, []);
+
+  const handleMealsChange = useCallback((payload: any) => {
+    if (!isMountedRef.current) return;
+
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    setMeals(prev => {
+      switch (eventType) {
+        case 'INSERT':
+          if (prev.some(m => m.id === newRecord.id)) {
+            return prev;
+          }
+          return [newRecord, ...prev];
+        
+        case 'UPDATE':
+          return prev.map(m => m.id === newRecord.id ? newRecord : m);
+        
+        case 'DELETE':
+          return prev.filter(m => m.id !== oldRecord.id);
+        
+        default:
+          return prev;
+      }
+    });
+  }, []);
+
+  const handlePollsChange = useCallback((payload: any) => {
+    if (!isMountedRef.current) return;
+
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    setPolls(prev => {
+      switch (eventType) {
+        case 'INSERT':
+          if (prev.some(p => p.id === newRecord.id)) {
+            return prev;
+          }
+          return [newRecord, ...prev];
+        
+        case 'UPDATE':
+          return prev.map(p => p.id === newRecord.id ? newRecord : p);
+        
+        case 'DELETE':
+          return prev.filter(p => p.id !== oldRecord.id);
+        
+        default:
+          return prev;
+      }
+    });
+  }, []);
+
+  const loadAllData = async () => {
+    if (!user?.householdId || !isMountedRef.current) {
+      return;
+    }
+
+    console.log('[RealtimeProvider] Loading all data for household:', user.householdId);
+
+    // Load all data in parallel
+    await Promise.all([
+      loadTasks(),
+      loadShoppingItems(),
+      loadEvents(),
+      loadMeals(),
+      loadPolls(),
+    ]);
   };
 
   const loadTasks = async () => {
-    if (!user?.householdId || !isMountedRef.current) {
-      console.log('[RealtimeProvider] No household ID or component unmounted, skipping task load');
-      return;
-    }
+    if (!user?.householdId || !isMountedRef.current) return;
     
     try {
-      console.log('[RealtimeProvider] Loading tasks for household:', user.householdId);
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -292,14 +403,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loadShop = async () => {
-    if (!user?.householdId || !isMountedRef.current) {
-      console.log('[RealtimeProvider] No household ID or component unmounted, skipping shopping load');
-      return;
-    }
+  const loadShoppingItems = async () => {
+    if (!user?.householdId || !isMountedRef.current) return;
     
     try {
-      console.log('[RealtimeProvider] Loading shopping items for household:', user.householdId);
       const { data, error } = await supabase
         .from('shopping_items')
         .select('*')
@@ -321,13 +428,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loadEvents = async () => {
-    if (!user?.householdId || !isMountedRef.current) {
-      console.log('[RealtimeProvider] No household ID or component unmounted, skipping events load');
-      return;
-    }
+    if (!user?.householdId || !isMountedRef.current) return;
     
     try {
-      console.log('[RealtimeProvider] Loading events for household:', user.householdId);
       const { data, error } = await supabase
         .from('household_events')
         .select('*')
@@ -348,8 +451,70 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loadMeals = async () => {
+    if (!user?.householdId || !isMountedRef.current) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('meals')
+        .select('*')
+        .eq('household_id', user.householdId)
+        .order('meal_date', { ascending: true });
+      
+      if (error) {
+        console.error('[RealtimeProvider] Error loading meals:', error);
+        return;
+      }
+      
+      if (data && isMountedRef.current) {
+        console.log('[RealtimeProvider] Loaded', data.length, 'meals');
+        setMeals(data);
+      }
+    } catch (error) {
+      console.error('[RealtimeProvider] Exception loading meals:', error);
+    }
+  };
+
+  const loadPolls = async () => {
+    if (!user?.householdId || !isMountedRef.current) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('polls')
+        .select('*')
+        .eq('household_id', user.householdId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('[RealtimeProvider] Error loading polls:', error);
+        return;
+      }
+      
+      if (data && isMountedRef.current) {
+        console.log('[RealtimeProvider] Loaded', data.length, 'polls');
+        setPolls(data);
+      }
+    } catch (error) {
+      console.error('[RealtimeProvider] Exception loading polls:', error);
+    }
+  };
+
+  const refreshAll = useCallback(async () => {
+    console.log('[RealtimeProvider] Manual refresh requested');
+    await loadAllData();
+  }, [user?.householdId]);
+
   return (
-    <RealtimeContext.Provider value={{ tasks, shoppingItems, events, isConnected, connectionStatus }}>
+    <RealtimeContext.Provider value={{ 
+      tasks, 
+      shoppingItems, 
+      events, 
+      meals,
+      polls,
+      isConnected, 
+      connectionStatus,
+      refreshAll,
+    }}>
       {children}
     </RealtimeContext.Provider>
   );
