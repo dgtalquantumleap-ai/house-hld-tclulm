@@ -31,22 +31,71 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const householdChannelRef = useRef<RealtimeChannel | null>(null);
   const isSubscribingRef = useRef(false);
   const isMountedRef = useRef(true);
+  const authListenerRef = useRef<{ data: { subscription: any } } | null>(null);
+  const currentHouseholdIdRef = useRef<string | null>(null);
 
+  // CRITICAL FIX: Listen to auth state changes and manage realtime lifecycle
   useEffect(() => {
     isMountedRef.current = true;
+    console.log('[RealtimeProvider] Setting up auth state listener');
 
+    // Listen to auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[RealtimeProvider] Auth event:', event, 'Session:', session ? 'exists' : 'null');
+
+      if (event === 'SIGNED_OUT') {
+        console.log('[RealtimeProvider] User signed out - cleaning up all channels');
+        cleanupChannels();
+        clearAllData();
+        setConnectionStatus('disconnected');
+        setIsConnected(false);
+        currentHouseholdIdRef.current = null;
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log('[RealtimeProvider] Token refreshed - recreating channels with new JWT');
+        // CRITICAL: The global auth listener in lib/supabase.ts already updated realtime auth
+        // We just need to recreate channels if we have a household
+        if (user?.householdId && session?.access_token) {
+          // Tear down existing channels
+          cleanupChannels();
+          // Wait a bit for the new token to propagate
+          await new Promise(resolve => setTimeout(resolve, 500));
+          // Recreate channels - auth is already set globally
+          await setupRealtimeSubscriptions();
+        }
+      } else if (event === 'SIGNED_IN') {
+        console.log('[RealtimeProvider] User signed in - waiting for user context');
+        // CRITICAL: The global auth listener in lib/supabase.ts already set realtime auth
+        // Wait for user context to update with household info
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Setup will happen in the household effect below
+      }
+    });
+
+    authListenerRef.current = { data: { subscription } };
+
+    return () => {
+      console.log('[RealtimeProvider] Cleaning up auth listener');
+      isMountedRef.current = false;
+      subscription.unsubscribe();
+      cleanupChannels();
+    };
+  }, []);
+
+  // CRITICAL FIX: Separate effect for household changes (after auth is established)
+  useEffect(() => {
     if (!user?.householdId) {
       console.log('[RealtimeProvider] No household ID, clearing data and skipping subscriptions');
-      setTasks([]);
-      setShoppingItems([]);
-      setEvents([]);
-      setMeals([]);
-      setPolls([]);
-      setIsConnected(false);
-      setConnectionStatus('disconnected');
-      
-      // Clean up any existing channels
+      clearAllData();
       cleanupChannels();
+      setConnectionStatus('disconnected');
+      setIsConnected(false);
+      currentHouseholdIdRef.current = null;
+      return;
+    }
+
+    // Check if household changed
+    if (currentHouseholdIdRef.current === user.householdId) {
+      console.log('[RealtimeProvider] Household unchanged, skipping setup');
       return;
     }
 
@@ -57,25 +106,39 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     }
 
     console.log('[RealtimeProvider] ========================================');
-    console.log('[RealtimeProvider] Setting up realtime for household:', user.householdId);
+    console.log('[RealtimeProvider] Household changed:', user.householdId);
     console.log('[RealtimeProvider] ========================================');
-    
-    isSubscribingRef.current = true;
-    setConnectionStatus('connecting');
+
+    currentHouseholdIdRef.current = user.householdId;
 
     // Initial data load
     loadAllData();
 
     // Setup realtime subscriptions
-    setupRealtimeSubscriptions();
-
-    return () => {
-      console.log('[RealtimeProvider] Cleaning up subscriptions');
-      isMountedRef.current = false;
-      cleanupChannels();
-      isSubscribingRef.current = false;
+    // CRITICAL: We don't pass access_token anymore - it's managed globally
+    const initializeRealtime = async () => {
+      // Verify we have a valid session before subscribing
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        console.log('[RealtimeProvider] Valid session found, setting up subscriptions');
+        await setupRealtimeSubscriptions();
+      } else {
+        console.error('[RealtimeProvider] No valid session found');
+        setConnectionStatus('error');
+      }
     };
+
+    initializeRealtime();
   }, [user?.householdId]);
+
+  const clearAllData = () => {
+    console.log('[RealtimeProvider] Clearing all data');
+    setTasks([]);
+    setShoppingItems([]);
+    setEvents([]);
+    setMeals([]);
+    setPolls([]);
+  };
 
   const cleanupChannels = () => {
     try {
@@ -84,46 +147,52 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         supabase.removeChannel(householdChannelRef.current);
         householdChannelRef.current = null;
       }
+      isSubscribingRef.current = false;
     } catch (error) {
       console.error('[RealtimeProvider] Error cleaning up channels:', error);
     }
   };
 
+  // CRITICAL FIX: Removed accessToken parameter - auth is managed globally in lib/supabase.ts
   const setupRealtimeSubscriptions = async () => {
     if (!user?.householdId) {
       console.log('[RealtimeProvider] No household ID for subscriptions');
       return;
     }
 
+    // Prevent concurrent subscription attempts
+    if (isSubscribingRef.current) {
+      console.log('[RealtimeProvider] Subscription already in progress');
+      return;
+    }
+
     try {
+      isSubscribingRef.current = true;
+      setConnectionStatus('connecting');
+
       // Clean up existing channel first
       if (householdChannelRef.current) {
+        console.log('[RealtimeProvider] Cleaning up existing channel before recreating');
         supabase.removeChannel(householdChannelRef.current);
         householdChannelRef.current = null;
       }
 
-      // CRITICAL FIX: Get the current session and set auth with the access token
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('[RealtimeProvider] Error getting session:', sessionError);
-        setConnectionStatus('error');
-        setIsConnected(false);
-        isSubscribingRef.current = false;
-        return;
-      }
-
+      // CRITICAL FIX: Verify session exists before subscribing
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        console.error('[RealtimeProvider] No access token available');
+        console.error('[RealtimeProvider] ❌ No valid session - cannot subscribe');
         setConnectionStatus('error');
         setIsConnected(false);
         isSubscribingRef.current = false;
         return;
       }
 
-      // Set auth with the JWT access token (not user ID!)
-      console.log('[RealtimeProvider] Setting realtime auth with access token');
-      await supabase.realtime.setAuth(session.access_token);
+      console.log('[RealtimeProvider] ✅ Valid session confirmed, proceeding with subscription');
+
+      // CRITICAL FIX: Auth is already set globally in lib/supabase.ts
+      // We don't need to call setAuth here - it's managed by the global listener
+      // Just wait a moment to ensure auth has propagated
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Create a single channel for all household data using broadcast
       // Topic format: household:{household_id}
@@ -179,23 +248,26 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           console.log('[RealtimeProvider] ✅ Successfully subscribed to realtime broadcast');
           setIsConnected(true);
           setConnectionStatus('connected');
+          isSubscribingRef.current = false;
         } else if (status === 'CHANNEL_ERROR') {
           console.error('[RealtimeProvider] ❌ Channel error:', err);
           setConnectionStatus('error');
           setIsConnected(false);
+          isSubscribingRef.current = false;
         } else if (status === 'CLOSED') {
           console.log('[RealtimeProvider] Channel closed');
           setConnectionStatus('disconnected');
           setIsConnected(false);
+          isSubscribingRef.current = false;
         } else if (status === 'TIMED_OUT') {
-          console.warn('[RealtimeProvider] ⚠️ Channel timed out, will retry...');
+          console.warn('[RealtimeProvider] ⚠️ Channel timed out');
           setConnectionStatus('error');
           setIsConnected(false);
+          isSubscribingRef.current = false;
         }
       });
 
       householdChannelRef.current = channel;
-      isSubscribingRef.current = false;
     } catch (error) {
       console.error('[RealtimeProvider] Error setting up subscriptions:', error);
       if (isMountedRef.current) {

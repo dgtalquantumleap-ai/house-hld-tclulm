@@ -96,50 +96,85 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// Add auth state change listener with better error handling
+// CRITICAL FIX: Global auth state change listener
+// This is the SINGLE SOURCE OF TRUTH for realtime auth management
+// All realtime channels will use the auth set here
 supabase.auth.onAuthStateChange(async (event, session) => {
+  console.log('[Supabase] ========================================');
   console.log('[Supabase] Auth state changed:', event);
+  console.log('[Supabase] Session:', session ? 'exists' : 'null');
+  console.log('[Supabase] ========================================');
   
   if (event === 'SIGNED_OUT') {
     console.log('[Supabase] User signed out, clearing realtime auth');
-    // Clear realtime auth - pass null to clear
+    // CRITICAL: Clear realtime auth on sign out
     try {
+      // Pass null to clear the auth
       await supabase.realtime.setAuth(null);
+      console.log('[Supabase] ✅ Realtime auth cleared successfully');
     } catch (error) {
-      console.error('[Supabase] Error clearing realtime auth:', error);
+      console.error('[Supabase] ❌ Error clearing realtime auth:', error);
     }
   } else if (event === 'TOKEN_REFRESHED') {
     console.log('[Supabase] Token refreshed, updating realtime auth');
-    // Refresh realtime auth when token is refreshed
+    // CRITICAL: Update realtime auth when token is refreshed
     if (session?.access_token) {
       try {
         await supabase.realtime.setAuth(session.access_token);
-        console.log('[Supabase] Realtime auth updated with new token');
+        console.log('[Supabase] ✅ Realtime auth updated with new token');
       } catch (error) {
-        console.error('[Supabase] Error updating realtime auth:', error);
+        console.error('[Supabase] ❌ Error updating realtime auth:', error);
       }
+    } else {
+      console.error('[Supabase] ❌ TOKEN_REFRESHED but no access_token in session');
     }
   } else if (event === 'SIGNED_IN') {
     console.log('[Supabase] User signed in, setting realtime auth');
-    // Set realtime auth when user signs in
+    // CRITICAL: Set realtime auth when user signs in
     if (session?.access_token) {
       try {
         await supabase.realtime.setAuth(session.access_token);
-        console.log('[Supabase] Realtime auth set for new session');
+        console.log('[Supabase] ✅ Realtime auth set for new session');
       } catch (error) {
-        console.error('[Supabase] Error setting realtime auth:', error);
+        console.error('[Supabase] ❌ Error setting realtime auth:', error);
       }
+    } else {
+      console.error('[Supabase] ❌ SIGNED_IN but no access_token in session');
     }
   } else if (event === 'USER_UPDATED') {
-    console.log('[Supabase] User updated');
+    console.log('[Supabase] User updated, refreshing realtime auth');
+    // CRITICAL: Ensure realtime auth is still valid on user update
+    if (session?.access_token) {
+      try {
+        await supabase.realtime.setAuth(session.access_token);
+        console.log('[Supabase] ✅ Realtime auth refreshed on user update');
+      } catch (error) {
+        console.error('[Supabase] ❌ Error refreshing realtime auth:', error);
+      }
+    }
+  } else if (event === 'INITIAL_SESSION') {
+    console.log('[Supabase] Initial session loaded');
+    // CRITICAL: Set realtime auth for initial session
+    if (session?.access_token) {
+      try {
+        await supabase.realtime.setAuth(session.access_token);
+        console.log('[Supabase] ✅ Realtime auth set for initial session');
+      } catch (error) {
+        console.error('[Supabase] ❌ Error setting realtime auth for initial session:', error);
+      }
+    }
   }
   
   // Log session status (without exposing tokens)
   if (session) {
     console.log('[Supabase] Session active for user:', session.user?.email);
+    console.log('[Supabase] Access token present:', !!session.access_token);
+    console.log('[Supabase] Access token length:', session.access_token?.length || 0);
   } else {
     console.log('[Supabase] No active session');
   }
+  
+  console.log('[Supabase] ========================================');
 });
 
 // Monitor realtime connection status in development
@@ -181,6 +216,8 @@ export const reconnectRealtime = async () => {
       // Set auth with access token
       await supabase.realtime.setAuth(session.access_token);
       console.log('[Realtime] Auth refreshed with access token');
+    } else {
+      console.error('[Realtime] No valid session for reconnection');
     }
     // Channels will automatically reconnect
     return true;
