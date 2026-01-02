@@ -1,31 +1,36 @@
+
 {
   "expo": {
-    "name": "House HLD",
-    "slug": "House HLD",
+    "name": "HOUSEHLD",
+    "slug": "househld",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/natively-dark.png",
+    "icon": "./assets/images/d0b91751-d7d5-4486-a5c4-71cf4d50c705.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/natively-dark.png",
+      "image": "./assets/images/d0b91751-d7d5-4486-a5c4-71cf4d50c705.png",
       "resizeMode": "contain",
-      "backgroundColor": "#6366F1"
+      "backgroundColor": "#F5F7FA"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.househld.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "HouseHLD needs access to your camera to take photos for your profile.",
-        "NSPhotoLibraryUsageDescription": "HouseHLD needs access to your photo library to select photos for your profile."
+        "NSCameraUsageDescription": "HOUSEHLD needs access to your camera to take photos for your profile.",
+        "NSPhotoLibraryUsageDescription": "HOUSEHLD needs access to your photo library to select photos for your profile.",
+        "UILaunchScreen": {
+          "UIImageName": "SplashScreen",
+          "UIColorName": "SplashScreenBackground"
+        }
       },
       "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/natively-dark.png",
-        "backgroundColor": "#6366F1"
+        "foregroundImage": "./assets/images/84fceb2f-e188-44d7-bc2b-821ee8ed315b.jpeg",
+        "backgroundColor": "#F5F7FA"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.househld.app",
@@ -37,13 +42,25 @@
       ]
     },
     "web": {
-      "favicon": "./assets/images/final_quest_240x240.png",
+      "favicon": "./assets/images/d0b91751-d7d5-4486-a5c4-71cf4d50c705.png",
       "bundler": "metro"
     },
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F5F7FA",
+          "image": "./assets/images/d0b91751-d7d5-4486-a5c4-71cf4d50c705.png",
+          "dark": {
+            "image": "./assets/images/d0b91751-d7d5-4486-a5c4-71cf4d50c705.png",
+            "backgroundColor": "#1A1A1A"
+          },
+          "imageWidth": 200
+        }
+      ]
     ],
     "scheme": "househld",
     "experiments": {
@@ -56,6 +73,5 @@
     "privacy": "public",
     "description": "A household management app for families and roommates. Manage tasks, shopping lists, events, and expenses together.",
     "githubUrl": "https://github.com/househld/app"
-  },
-  "scheme": "House HLD"
+  }
 }

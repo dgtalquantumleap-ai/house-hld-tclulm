@@ -19,7 +19,14 @@ import { RealtimeProvider } from "@/contexts/RealtimeProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { setupGlobalErrorHandlers } from "@/utils/globalErrorHandler";
 
+// Prevent auto-hide to control splash screen manually
 SplashScreen.preventAutoHideAsync();
+
+// Configure splash screen animation (optional fade effect)
+SplashScreen.setOptions({
+  duration: 500,
+  fade: true,
+});
 
 function RootNavigator() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -111,8 +118,13 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
+    // Hide splash screen immediately when fonts are loaded
+    // This ensures no delay in app startup
     if (loaded) {
-      SplashScreen.hideAsync();
+      console.log('RootLayout: Fonts loaded, hiding splash screen');
+      SplashScreen.hideAsync().catch((error) => {
+        console.warn('Error hiding splash screen:', error);
+      });
     }
   }, [loaded]);
 
