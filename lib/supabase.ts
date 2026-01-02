@@ -30,7 +30,6 @@ const customStorage = {
   getItem: async (key: string) => {
     try {
       const value = await AsyncStorage.getItem(key);
-      console.log(`Storage GET [${key}]:`, value ? 'Found' : 'Not found');
       return value;
     } catch (error) {
       console.error(`Storage GET error [${key}]:`, error);
@@ -40,7 +39,6 @@ const customStorage = {
   setItem: async (key: string, value: string) => {
     try {
       await AsyncStorage.setItem(key, value);
-      console.log(`Storage SET [${key}]: Success`);
     } catch (error) {
       console.error(`Storage SET error [${key}]:`, error);
     }
@@ -48,7 +46,6 @@ const customStorage = {
   removeItem: async (key: string) => {
     try {
       await AsyncStorage.removeItem(key);
-      console.log(`Storage REMOVE [${key}]: Success`);
     } catch (error) {
       console.error(`Storage REMOVE error [${key}]:`, error);
     }
@@ -67,8 +64,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web', // Only detect session in URL on web
     flowType: 'pkce', // Use PKCE flow for better security
-    // Add debug logging for auth events
-    debug: __DEV__,
+    debug: __DEV__, // Enable debug logging in development
   },
   realtime: {
     params: {
@@ -77,19 +73,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       // Optimize reconnection timing - exponential backoff starting at 1 second
       reconnectAfterMs: (tries: number) => {
         // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
-        return Math.min(1000 * Math.pow(2, tries), 30000);
+        const delay = Math.min(1000 * Math.pow(2, tries), 30000);
+        console.log(`[Realtime] Reconnecting in ${delay}ms (attempt ${tries + 1})`);
+        return delay;
       },
       // Heartbeat interval to keep connection alive (30 seconds)
       heartbeatIntervalMs: 30000,
       // Timeout for establishing connection (10 seconds)
       timeout: 10000,
+      // Enable presence tracking
+      eventsPerSecond: 10,
     },
     // Enable automatic reconnection
     reconnect: true,
   },
   global: {
     headers: {
-      // Add custom headers if needed
+      // Add custom headers
       'x-client-info': 'househld-app',
       'x-client-platform': Platform.OS,
     },
@@ -98,36 +98,80 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Add auth state change listener with better error handling
 supabase.auth.onAuthStateChange((event, session) => {
-  console.log('Auth state changed:', event);
+  console.log('[Supabase] Auth state changed:', event);
   
   if (event === 'SIGNED_OUT') {
-    console.log('User signed out, clearing storage');
+    console.log('[Supabase] User signed out, clearing storage');
+    // Clear realtime auth
+    supabase.realtime.setAuth(null);
   } else if (event === 'TOKEN_REFRESHED') {
-    console.log('Token refreshed successfully');
+    console.log('[Supabase] Token refreshed successfully');
     // Refresh realtime auth when token is refreshed
-    supabase.realtime.setAuth(session?.access_token ?? null);
+    if (session?.access_token) {
+      supabase.realtime.setAuth(session.access_token);
+    }
   } else if (event === 'SIGNED_IN') {
-    console.log('User signed in');
+    console.log('[Supabase] User signed in');
     // Set realtime auth when user signs in
-    supabase.realtime.setAuth(session?.access_token ?? null);
+    if (session?.access_token) {
+      supabase.realtime.setAuth(session.access_token);
+    }
   } else if (event === 'USER_UPDATED') {
-    console.log('User updated');
+    console.log('[Supabase] User updated');
   }
   
   // Log session status (without exposing tokens)
   if (session) {
-    console.log('Session active for user:', session.user?.email);
+    console.log('[Supabase] Session active for user:', session.user?.email);
   } else {
-    console.log('No active session');
+    console.log('[Supabase] No active session');
   }
 });
 
-// Monitor realtime connection status
+// Monitor realtime connection status in development
 if (__DEV__) {
-  // Log realtime connection events in development
+  console.log('[Supabase] Realtime monitoring enabled');
+  
+  // Log when realtime connects
   const originalConnect = supabase.realtime.connect.bind(supabase.realtime);
   supabase.realtime.connect = () => {
-    console.log('[Realtime] Connecting...');
+    console.log('[Realtime] Connecting to Supabase Realtime...');
     return originalConnect();
   };
+  
+  // Log when realtime disconnects
+  const originalDisconnect = supabase.realtime.disconnect.bind(supabase.realtime);
+  supabase.realtime.disconnect = () => {
+    console.log('[Realtime] Disconnecting from Supabase Realtime...');
+    return originalDisconnect();
+  };
 }
+
+// Export helper function to check realtime connection
+export const checkRealtimeConnection = () => {
+  const channels = supabase.getChannels();
+  console.log('[Realtime] Active channels:', channels.length);
+  channels.forEach(channel => {
+    console.log(`[Realtime] Channel: ${channel.topic}, State: ${channel.state}`);
+  });
+  return channels;
+};
+
+// Export helper function to manually reconnect realtime
+export const reconnectRealtime = async () => {
+  console.log('[Realtime] Manual reconnection requested');
+  try {
+    // Get current session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      // Set auth
+      await supabase.realtime.setAuth(session.access_token);
+      console.log('[Realtime] Auth refreshed');
+    }
+    // Channels will automatically reconnect
+    return true;
+  } catch (error) {
+    console.error('[Realtime] Error reconnecting:', error);
+    return false;
+  }
+};

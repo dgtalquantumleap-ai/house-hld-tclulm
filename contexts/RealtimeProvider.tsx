@@ -31,21 +31,6 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const householdChannelRef = useRef<RealtimeChannel | null>(null);
   const isSubscribingRef = useRef(false);
   const isMountedRef = useRef(true);
-  const lastFetchRef = useRef<{ [key: string]: number }>({});
-
-  // Debounce data fetching to prevent excessive queries
-  const debouncedFetch = useCallback((key: string, fetchFn: () => Promise<void>, delay = 500) => {
-    const now = Date.now();
-    const lastFetch = lastFetchRef.current[key] || 0;
-    
-    if (now - lastFetch < delay) {
-      console.log(`[RealtimeProvider] Debouncing ${key} fetch`);
-      return;
-    }
-    
-    lastFetchRef.current[key] = now;
-    fetchFn();
-  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -117,89 +102,51 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         householdChannelRef.current = null;
       }
 
-      // Create a single channel for all household data
-      const channelName = `household:${user.householdId}:all`;
-      console.log('[RealtimeProvider] Creating channel:', channelName);
+      // Create a single channel for all household data using broadcast
+      // Topic format: household:{household_id}
+      const channelName = `household:${user.householdId}`;
+      console.log('[RealtimeProvider] Creating broadcast channel:', channelName);
+
+      // Set auth before creating channel
+      await supabase.realtime.setAuth(user.id);
 
       const channel = supabase.channel(channelName, {
         config: {
-          broadcast: { self: false, ack: false },
-          private: false,
+          broadcast: { 
+            self: false,  // Don't receive our own broadcasts (optimistic updates handle this)
+            ack: false    // Don't wait for acknowledgment (faster)
+          },
+          private: true,  // Use private channel with RLS policies
         },
       });
 
-      // Subscribe to tasks changes
+      // Subscribe to INSERT events
       channel.on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-          filter: `household_id=eq.${user.householdId}`,
-        },
+        'broadcast',
+        { event: 'INSERT' },
         (payload) => {
-          console.log('[RealtimeProvider] Tasks change:', payload.eventType);
-          handleTasksChange(payload);
+          console.log('[RealtimeProvider] INSERT event:', payload);
+          handleBroadcastEvent('INSERT', payload);
         }
       );
 
-      // Subscribe to shopping items changes
+      // Subscribe to UPDATE events
       channel.on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'shopping_items',
-          filter: `household_id=eq.${user.householdId}`,
-        },
+        'broadcast',
+        { event: 'UPDATE' },
         (payload) => {
-          console.log('[RealtimeProvider] Shopping change:', payload.eventType);
-          handleShoppingChange(payload);
+          console.log('[RealtimeProvider] UPDATE event:', payload);
+          handleBroadcastEvent('UPDATE', payload);
         }
       );
 
-      // Subscribe to events changes
+      // Subscribe to DELETE events
       channel.on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'household_events',
-          filter: `household_id=eq.${user.householdId}`,
-        },
+        'broadcast',
+        { event: 'DELETE' },
         (payload) => {
-          console.log('[RealtimeProvider] Events change:', payload.eventType);
-          handleEventsChange(payload);
-        }
-      );
-
-      // Subscribe to meals changes
-      channel.on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'meals',
-          filter: `household_id=eq.${user.householdId}`,
-        },
-        (payload) => {
-          console.log('[RealtimeProvider] Meals change:', payload.eventType);
-          handleMealsChange(payload);
-        }
-      );
-
-      // Subscribe to polls changes
-      channel.on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'polls',
-          filter: `household_id=eq.${user.householdId}`,
-        },
-        (payload) => {
-          console.log('[RealtimeProvider] Polls change:', payload.eventType);
-          handlePollsChange(payload);
+          console.log('[RealtimeProvider] DELETE event:', payload);
+          handleBroadcastEvent('DELETE', payload);
         }
       );
 
@@ -209,7 +156,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         if (!isMountedRef.current) return;
         
         if (status === 'SUBSCRIBED') {
-          console.log('[RealtimeProvider] ✅ Successfully subscribed to realtime');
+          console.log('[RealtimeProvider] ✅ Successfully subscribed to realtime broadcast');
           setIsConnected(true);
           setConnectionStatus('connected');
         } else if (status === 'CHANNEL_ERROR') {
@@ -219,6 +166,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         } else if (status === 'CLOSED') {
           console.log('[RealtimeProvider] Channel closed');
           setConnectionStatus('disconnected');
+          setIsConnected(false);
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[RealtimeProvider] ⚠️ Channel timed out, will retry...');
+          setConnectionStatus('error');
           setIsConnected(false);
         }
       });
@@ -235,25 +186,63 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Optimized change handlers that update state immediately
-  const handleTasksChange = useCallback((payload: any) => {
+  // Handle broadcast events from database triggers
+  const handleBroadcastEvent = useCallback((eventType: string, payload: any) => {
     if (!isMountedRef.current) return;
 
-    const { eventType, new: newRecord, old: oldRecord } = payload;
+    // Extract data from payload
+    const { table, new: newRecord, old: oldRecord } = payload.payload || {};
+    
+    if (!table) {
+      console.warn('[RealtimeProvider] Broadcast event missing table name:', payload);
+      return;
+    }
+
+    console.log(`[RealtimeProvider] Processing ${eventType} for ${table}`);
+
+    // Route to appropriate handler based on table
+    switch (table) {
+      case 'tasks':
+        handleTasksChange(eventType, newRecord, oldRecord);
+        break;
+      case 'shopping_items':
+        handleShoppingChange(eventType, newRecord, oldRecord);
+        break;
+      case 'household_events':
+        handleEventsChange(eventType, newRecord, oldRecord);
+        break;
+      case 'meals':
+        handleMealsChange(eventType, newRecord, oldRecord);
+        break;
+      case 'polls':
+        handlePollsChange(eventType, newRecord, oldRecord);
+        break;
+      default:
+        console.log('[RealtimeProvider] Unknown table:', table);
+    }
+  }, []);
+
+  // Optimized change handlers that update state immediately
+  const handleTasksChange = useCallback((eventType: string, newRecord: any, oldRecord: any) => {
+    if (!isMountedRef.current) return;
 
     setTasks(prev => {
       switch (eventType) {
         case 'INSERT':
-          // Check if already exists (prevent duplicates)
+          // Check if already exists (prevent duplicates from optimistic updates)
           if (prev.some(t => t.id === newRecord.id)) {
+            console.log('[RealtimeProvider] Task already exists (optimistic), skipping:', newRecord.id);
             return prev;
           }
+          console.log('[RealtimeProvider] Adding new task:', newRecord.id);
           return [newRecord, ...prev];
         
         case 'UPDATE':
+          console.log('[RealtimeProvider] Updating task:', newRecord.id);
           return prev.map(t => t.id === newRecord.id ? newRecord : t);
         
         case 'DELETE':
+          console.log('[RealtimeProvider] Deleting task:', oldRecord.id);
           return prev.filter(t => t.id !== oldRecord.id);
         
         default:
@@ -262,23 +251,25 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const handleShoppingChange = useCallback((payload: any) => {
+  const handleShoppingChange = useCallback((eventType: string, newRecord: any, oldRecord: any) => {
     if (!isMountedRef.current) return;
-
-    const { eventType, new: newRecord, old: oldRecord } = payload;
 
     setShoppingItems(prev => {
       switch (eventType) {
         case 'INSERT':
           if (prev.some(i => i.id === newRecord.id)) {
+            console.log('[RealtimeProvider] Shopping item already exists (optimistic), skipping:', newRecord.id);
             return prev;
           }
+          console.log('[RealtimeProvider] Adding new shopping item:', newRecord.id);
           return [newRecord, ...prev];
         
         case 'UPDATE':
+          console.log('[RealtimeProvider] Updating shopping item:', newRecord.id);
           return prev.map(i => i.id === newRecord.id ? newRecord : i);
         
         case 'DELETE':
+          console.log('[RealtimeProvider] Deleting shopping item:', oldRecord.id);
           return prev.filter(i => i.id !== oldRecord.id);
         
         default:
@@ -287,23 +278,25 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const handleEventsChange = useCallback((payload: any) => {
+  const handleEventsChange = useCallback((eventType: string, newRecord: any, oldRecord: any) => {
     if (!isMountedRef.current) return;
-
-    const { eventType, new: newRecord, old: oldRecord } = payload;
 
     setEvents(prev => {
       switch (eventType) {
         case 'INSERT':
           if (prev.some(e => e.id === newRecord.id)) {
+            console.log('[RealtimeProvider] Event already exists (optimistic), skipping:', newRecord.id);
             return prev;
           }
+          console.log('[RealtimeProvider] Adding new event:', newRecord.id);
           return [newRecord, ...prev];
         
         case 'UPDATE':
+          console.log('[RealtimeProvider] Updating event:', newRecord.id);
           return prev.map(e => e.id === newRecord.id ? newRecord : e);
         
         case 'DELETE':
+          console.log('[RealtimeProvider] Deleting event:', oldRecord.id);
           return prev.filter(e => e.id !== oldRecord.id);
         
         default:
@@ -312,23 +305,25 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const handleMealsChange = useCallback((payload: any) => {
+  const handleMealsChange = useCallback((eventType: string, newRecord: any, oldRecord: any) => {
     if (!isMountedRef.current) return;
-
-    const { eventType, new: newRecord, old: oldRecord } = payload;
 
     setMeals(prev => {
       switch (eventType) {
         case 'INSERT':
           if (prev.some(m => m.id === newRecord.id)) {
+            console.log('[RealtimeProvider] Meal already exists (optimistic), skipping:', newRecord.id);
             return prev;
           }
+          console.log('[RealtimeProvider] Adding new meal:', newRecord.id);
           return [newRecord, ...prev];
         
         case 'UPDATE':
+          console.log('[RealtimeProvider] Updating meal:', newRecord.id);
           return prev.map(m => m.id === newRecord.id ? newRecord : m);
         
         case 'DELETE':
+          console.log('[RealtimeProvider] Deleting meal:', oldRecord.id);
           return prev.filter(m => m.id !== oldRecord.id);
         
         default:
@@ -337,23 +332,25 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const handlePollsChange = useCallback((payload: any) => {
+  const handlePollsChange = useCallback((eventType: string, newRecord: any, oldRecord: any) => {
     if (!isMountedRef.current) return;
-
-    const { eventType, new: newRecord, old: oldRecord } = payload;
 
     setPolls(prev => {
       switch (eventType) {
         case 'INSERT':
           if (prev.some(p => p.id === newRecord.id)) {
+            console.log('[RealtimeProvider] Poll already exists (optimistic), skipping:', newRecord.id);
             return prev;
           }
+          console.log('[RealtimeProvider] Adding new poll:', newRecord.id);
           return [newRecord, ...prev];
         
         case 'UPDATE':
+          console.log('[RealtimeProvider] Updating poll:', newRecord.id);
           return prev.map(p => p.id === newRecord.id ? newRecord : p);
         
         case 'DELETE':
+          console.log('[RealtimeProvider] Deleting poll:', oldRecord.id);
           return prev.filter(p => p.id !== oldRecord.id);
         
         default:
