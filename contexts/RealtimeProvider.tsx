@@ -102,13 +102,33 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         householdChannelRef.current = null;
       }
 
+      // CRITICAL FIX: Get the current session and set auth with the access token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('[RealtimeProvider] Error getting session:', sessionError);
+        setConnectionStatus('error');
+        setIsConnected(false);
+        isSubscribingRef.current = false;
+        return;
+      }
+
+      if (!session?.access_token) {
+        console.error('[RealtimeProvider] No access token available');
+        setConnectionStatus('error');
+        setIsConnected(false);
+        isSubscribingRef.current = false;
+        return;
+      }
+
+      // Set auth with the JWT access token (not user ID!)
+      console.log('[RealtimeProvider] Setting realtime auth with access token');
+      await supabase.realtime.setAuth(session.access_token);
+
       // Create a single channel for all household data using broadcast
       // Topic format: household:{household_id}
       const channelName = `household:${user.householdId}`;
       console.log('[RealtimeProvider] Creating broadcast channel:', channelName);
-
-      // Set auth before creating channel
-      await supabase.realtime.setAuth(user.id);
 
       const channel = supabase.channel(channelName, {
         config: {

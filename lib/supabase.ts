@@ -97,24 +97,38 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 // Add auth state change listener with better error handling
-supabase.auth.onAuthStateChange((event, session) => {
+supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('[Supabase] Auth state changed:', event);
   
   if (event === 'SIGNED_OUT') {
-    console.log('[Supabase] User signed out, clearing storage');
-    // Clear realtime auth
-    supabase.realtime.setAuth(null);
+    console.log('[Supabase] User signed out, clearing realtime auth');
+    // Clear realtime auth - pass null to clear
+    try {
+      await supabase.realtime.setAuth(null);
+    } catch (error) {
+      console.error('[Supabase] Error clearing realtime auth:', error);
+    }
   } else if (event === 'TOKEN_REFRESHED') {
-    console.log('[Supabase] Token refreshed successfully');
+    console.log('[Supabase] Token refreshed, updating realtime auth');
     // Refresh realtime auth when token is refreshed
     if (session?.access_token) {
-      supabase.realtime.setAuth(session.access_token);
+      try {
+        await supabase.realtime.setAuth(session.access_token);
+        console.log('[Supabase] Realtime auth updated with new token');
+      } catch (error) {
+        console.error('[Supabase] Error updating realtime auth:', error);
+      }
     }
   } else if (event === 'SIGNED_IN') {
-    console.log('[Supabase] User signed in');
+    console.log('[Supabase] User signed in, setting realtime auth');
     // Set realtime auth when user signs in
     if (session?.access_token) {
-      supabase.realtime.setAuth(session.access_token);
+      try {
+        await supabase.realtime.setAuth(session.access_token);
+        console.log('[Supabase] Realtime auth set for new session');
+      } catch (error) {
+        console.error('[Supabase] Error setting realtime auth:', error);
+      }
     }
   } else if (event === 'USER_UPDATED') {
     console.log('[Supabase] User updated');
@@ -164,9 +178,9 @@ export const reconnectRealtime = async () => {
     // Get current session
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
-      // Set auth
+      // Set auth with access token
       await supabase.realtime.setAuth(session.access_token);
-      console.log('[Realtime] Auth refreshed');
+      console.log('[Realtime] Auth refreshed with access token');
     }
     // Channels will automatically reconnect
     return true;
