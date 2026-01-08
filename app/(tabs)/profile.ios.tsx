@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
 import { supabase } from '@/lib/supabase';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function ProfileScreen() {
   const { user, signOut, updateUser } = useAuth();
@@ -91,6 +92,26 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleOpenPrivacyPolicy = async () => {
+    try {
+      // TODO: Replace with your actual Privacy Policy URL
+      await WebBrowser.openBrowserAsync('https://your-app-domain.com/privacy-policy');
+    } catch (error) {
+      console.log('Error opening Privacy Policy:', error);
+      Alert.alert('Error', 'Could not open Privacy Policy');
+    }
+  };
+
+  const handleOpenTermsOfService = async () => {
+    try {
+      // TODO: Replace with your actual Terms of Service URL
+      await WebBrowser.openBrowserAsync('https://your-app-domain.com/terms-of-service');
+    } catch (error) {
+      console.log('Error opening Terms of Service:', error);
+      Alert.alert('Error', 'Could not open Terms of Service');
+    }
   };
 
   if (!user) {
@@ -260,6 +281,48 @@ export default function ProfileScreen() {
             </>
           )}
         </View>
+
+        {/* Legal & Support Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Legal & Support</Text>
+          
+          <TouchableOpacity style={styles.linkRow} onPress={handleOpenPrivacyPolicy}>
+            <IconSymbol
+              ios_icon_name="lock.shield.fill"
+              android_material_icon_name="lock"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.linkText}>Privacy Policy</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="arrow-forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.linkRow} onPress={handleOpenTermsOfService}>
+            <IconSymbol
+              ios_icon_name="doc.text.fill"
+              android_material_icon_name="description"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.linkText}>Terms of Service</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="arrow-forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* App Version */}
+        <View style={styles.versionContainer}>
+          <Text style={styles.versionText}>HouseHLD v1.0.0</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -384,5 +447,24 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: 16,
     fontWeight: '600',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  linkText: {
+    fontSize: 16,
+    color: colors.text,
+    flex: 1,
+  },
+  versionContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  versionText: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });
