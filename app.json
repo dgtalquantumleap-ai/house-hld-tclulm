@@ -5,44 +5,27 @@
     "slug": "househld",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/9c7477cf-0d78-44c2-adf9-2692731367e7.png",
+    "icon": "./assets/images/d7d0ee05-ce43-4326-81df-0b6566ba010f.png",
+    "scheme": "househld",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/9c7477cf-0d78-44c2-adf9-2692731367e7.png",
+      "image": "./assets/images/d7d0ee05-ce43-4326-81df-0b6566ba010f.png",
       "resizeMode": "contain",
       "backgroundColor": "#4A90E2"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.househld.app",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "bundleIdentifier": "com.househld.app"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/9c7477cf-0d78-44c2-adf9-2692731367e7.png",
+        "foregroundImage": "./assets/images/d7d0ee05-ce43-4326-81df-0b6566ba010f.png",
         "backgroundColor": "#4A90E2"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.househld.app"
     },
-    "web": {
-      "favicon": "./assets/images/9c7477cf-0d78-44c2-adf9-2692731367e7.png",
-      "bundler": "metro"
-    },
     "plugins": [
-      "expo-font",
-      "expo-router",
-      "expo-web-browser"
-    ],
-    "scheme": "househld",
-    "experiments": {
-      "typedRoutes": true
-    },
-    "extra": {
-      "router": {}
-    }
+      "expo-router"
+    ]
   }
 }
