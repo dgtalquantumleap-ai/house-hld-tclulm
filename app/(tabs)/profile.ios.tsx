@@ -19,10 +19,12 @@ import { useHousehold } from '@/hooks/useHousehold';
 import { User } from '@/types';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
   const { user, signOut, updateUser } = useAuth();
   const { household, members, loading: householdLoading, refreshHousehold } = useHousehold();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -105,6 +107,14 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.editButton} onPress={() => setEditModalVisible(true)}>
           <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={20} color={colors.primary} />
           <Text style={styles.editButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.householdButton}
+          onPress={() => router.push('/(tabs)/household')}
+        >
+          <IconSymbol ios_icon_name="house.fill" android_material_icon_name="home" size={24} color="#fff" />
+          <Text style={styles.householdButtonText}>Manage Household</Text>
         </TouchableOpacity>
 
         {household && (
@@ -267,6 +277,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 12,
     margin: 16,
+    marginBottom: 8,
     backgroundColor: colors.card,
     borderRadius: 8,
     borderWidth: 1,
@@ -276,6 +287,22 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     color: colors.primary,
+    fontWeight: '600',
+  },
+  householdButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    margin: 16,
+    marginTop: 0,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    gap: 12,
+  },
+  householdButtonText: {
+    color: '#fff',
+    fontSize: 18,
     fontWeight: '600',
   },
   section: {
