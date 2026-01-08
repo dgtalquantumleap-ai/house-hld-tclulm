@@ -5,11 +5,11 @@
     "slug": "househld",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/final_quest_240x240.png",
+    "icon": "./assets/images/9c7477cf-0d78-44c2-adf9-2692731367e7.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/final_quest_240x240.png",
+      "image": "./assets/images/9c7477cf-0d78-44c2-adf9-2692731367e7.png",
       "resizeMode": "contain",
       "backgroundColor": "#4A90E2"
     },
@@ -22,14 +22,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/final_quest_240x240.png",
+        "foregroundImage": "./assets/images/9c7477cf-0d78-44c2-adf9-2692731367e7.png",
         "backgroundColor": "#4A90E2"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.househld.app"
     },
     "web": {
-      "favicon": "./assets/images/final_quest_240x240.png",
+      "favicon": "./assets/images/9c7477cf-0d78-44c2-adf9-2692731367e7.png",
       "bundler": "metro"
     },
     "plugins": [
