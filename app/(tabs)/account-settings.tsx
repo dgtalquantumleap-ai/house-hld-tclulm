@@ -27,7 +27,10 @@ export default function AccountSettingsScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteAccount = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('[AccountSettings] No user found, cannot delete account');
+      return;
+    }
 
     setIsDeleting(true);
     try {
@@ -41,9 +44,9 @@ export default function AccountSettingsScreen() {
         throw new Error('Authentication required. Please sign in again.');
       }
 
-      // Get the Edge Function URL
-      const { data: { project_url } } = await supabase.functions.getUrl('delete-account');
-      const functionUrl = `${project_url}/functions/v1/delete-account`;
+      // Get the project URL
+      const projectUrl = 'https://tkavowbmakdnqekweoro.supabase.co';
+      const functionUrl = `${projectUrl}/functions/v1/delete-account`;
       
       console.log('[AccountSettings] Calling delete-account Edge Function...');
 
