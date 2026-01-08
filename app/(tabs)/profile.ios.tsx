@@ -1,516 +1,76 @@
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  TextInput,
-  Modal,
-  RefreshControl,
-  Share,
-  Linking,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
-import { useHousehold } from '@/hooks/useHousehold';
-import { useNotifications } from '@/hooks/useNotifications';
-import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
-import { supabase } from '@/lib/supabase';
+import React from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { IconSymbol } from "@/components/IconSymbol";
+import { GlassView } from "expo-glass-effect";
+import { useTheme } from "@react-navigation/native";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ProfileScreen() {
+  const theme = useTheme();
   const router = useRouter();
-  const { user, signOut, updateUser } = useAuth();
-  const { household, isLoading: householdLoading, refreshHousehold } = useHousehold();
-  const { notifications, isLoading: notificationsLoading, markAllAsRead, getUnreadCount, refreshNotifications } = useNotifications();
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
-  const [showMembersModal, setShowMembersModal] = useState(false);
-  const [editName, setEditName] = useState(user?.name || '');
-  const [editPhone, setEditPhone] = useState(user?.phone || '');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [householdMembers, setHouseholdMembers] = useState<any[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
-
-  const unreadCount = getUnreadCount();
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([refreshHousehold(), refreshNotifications()]);
-    setRefreshing(false);
-  };
-
-  const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('Profile (iOS): Starting sign out process');
-              setIsSigningOut(true);
-              
-              await signOut();
-              
-              console.log('Profile (iOS): Sign out successful');
-              // The AuthContext will handle the navigation automatically
-              // via the auth state change listener in the layout components
-            } catch (error: any) {
-              console.error('Profile (iOS): Sign out error:', error);
-              Alert.alert('Error', error.message || 'Failed to sign out');
-            } finally {
-              setIsSigningOut(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleUpdateProfile = async () => {
-    if (!editName.trim()) {
-      Alert.alert('Error', 'Name cannot be empty');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await updateUser({
-        name: editName,
-        phone: editPhone || undefined,
-      });
-      setShowEditModal(false);
-      Alert.alert('Success', 'Profile updated successfully');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update profile');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleLeaveHousehold = () => {
-    Alert.alert(
-      'Leave Household',
-      'Are you sure you want to leave this household? You will need an invite code to rejoin.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await updateUser({ householdId: null });
-              Alert.alert('Success', 'You have left the household');
-              // The auth layout will automatically redirect to onboarding
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to leave household');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleShareInviteCode = async () => {
-    if (!household?.inviteCode) {
-      Alert.alert('Error', 'No invite code available');
-      return;
-    }
-
-    try {
-      await Share.share({
-        message: `Join our household "${household.name}" on HouseHLD! Use invite code: ${household.inviteCode}`,
-      });
-    } catch (error: any) {
-      console.error('Error sharing invite code:', error);
-    }
-  };
-
-  const loadHouseholdMembers = async () => {
-    if (!user?.householdId) return;
-
-    setLoadingMembers(true);
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, email, role, created_at')
-        .eq('household_id', user.householdId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setHouseholdMembers(data || []);
-    } catch (error: any) {
-      console.error('Error loading household members:', error);
-      Alert.alert('Error', 'Failed to load household members');
-    } finally {
-      setLoadingMembers(false);
-    }
-  };
-
-  const handleViewMembers = () => {
-    loadHouseholdMembers();
-    setShowMembersModal(true);
-  };
-
-  const handleMarkAllNotificationsRead = async () => {
-    const { error } = await markAllAsRead();
-    if (error) {
-      Alert.alert('Error', error);
-    }
-  };
+  const { user, signOut } = useAuth();
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => setShowNotificationsModal(true)}
-          >
-            <IconSymbol
-              ios_icon_name="bell.fill"
-              android_material_icon_name="notifications"
-              size={24}
-              color={colors.text}
-            />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+      >
+        <GlassView style={styles.profileHeader} glassEffectStyle="regular">
+          <IconSymbol ios_icon_name="person.circle.fill" android_material_icon_name="person" size={80} color={theme.colors.primary} />
+          <Text style={[styles.name, { color: theme.colors.text }]}>
+            {user?.name || "User"}
+          </Text>
+          <Text style={[styles.email, { color: theme.dark ? '#98989D' : '#666' }]}>
+            {user?.email || ""}
+          </Text>
+        </GlassView>
 
-        <ScrollView 
-          contentContainerStyle={styles.content}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-          {/* Profile Card */}
-          <View style={styles.profileCard}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {user?.name?.charAt(0).toUpperCase() || '?'}
+        <GlassView style={styles.section} glassEffectStyle="regular">
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/(tabs)/account-settings")}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol
+                ios_icon_name="gear"
+                android_material_icon_name="settings"
+                size={20}
+                color={theme.dark ? '#98989D' : '#666'}
+              />
+              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>
+                Account Settings
               </Text>
             </View>
-            <Text style={styles.profileName}>{user?.name}</Text>
-            <Text style={styles.profileEmail}>{user?.email}</Text>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleText}>{user?.role}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => {
-                setEditName(user?.name || '');
-                setEditPhone(user?.phone || '');
-                setShowEditModal(true);
-              }}
-            >
-              <Text style={styles.editButtonText}>Edit Profile</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Household Section */}
-          {household && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Household</Text>
-              <View style={styles.householdCard}>
-                <View style={styles.householdHeader}>
-                  <View>
-                    <Text style={styles.householdName}>{household.name}</Text>
-                    {household.address && (
-                      <Text style={styles.householdAddress}>{household.address}</Text>
-                    )}
-                  </View>
-                  <View style={styles.membersBadge}>
-                    <IconSymbol
-                      ios_icon_name="person.2.fill"
-                      android_material_icon_name="people"
-                      size={16}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.membersCount}>{household.membersCount}</Text>
-                  </View>
-                </View>
-                
-                {household.inviteCode && (
-                  <View style={styles.inviteCodeContainer}>
-                    <Text style={styles.inviteCodeLabel}>Invite Code</Text>
-                    <View style={styles.inviteCodeBox}>
-                      <Text style={styles.inviteCode}>{household.inviteCode}</Text>
-                      <TouchableOpacity onPress={handleShareInviteCode}>
-                        <IconSymbol
-                          ios_icon_name="square.and.arrow.up"
-                          android_material_icon_name="share"
-                          size={20}
-                          color={colors.primary}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-
-                <View style={styles.householdActions}>
-                  <TouchableOpacity
-                    style={styles.householdActionButton}
-                    onPress={handleViewMembers}
-                  >
-                    <IconSymbol
-                      ios_icon_name="person.2"
-                      android_material_icon_name="people"
-                      size={20}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.householdActionText}>View Members</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.householdActionButton, styles.dangerButton]}
-                    onPress={handleLeaveHousehold}
-                  >
-                    <IconSymbol
-                      ios_icon_name="rectangle.portrait.and.arrow.right"
-                      android_material_icon_name="exit_to_app"
-                      size={20}
-                      color={colors.error}
-                    />
-                    <Text style={[styles.householdActionText, styles.dangerText]}>
-                      Leave Household
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Legal Section - ALWAYS VISIBLE, NO CONDITIONS */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Legal</Text>
-            <View style={styles.legalCard}>
-              <TouchableOpacity 
-                style={styles.legalLink}
-                onPress={() => Linking.openURL('https://househld.app/privacy')}
-              >
-                <View style={styles.legalLinkContent}>
-                  <IconSymbol
-                    ios_icon_name="doc.text"
-                    android_material_icon_name="description"
-                    size={20}
-                    color="#6B7280"
-                  />
-                  <Text style={styles.legalLinkText}>Privacy Policy</Text>
-                </View>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color="#9CA3AF"
-                />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.legalLink}
-                onPress={() => Linking.openURL('https://househld.app/terms')}
-              >
-                <View style={styles.legalLinkContent}>
-                  <IconSymbol
-                    ios_icon_name="shield.checkmark"
-                    android_material_icon_name="verified-user"
-                    size={20}
-                    color="#6B7280"
-                  />
-                  <Text style={styles.legalLinkText}>Terms of Service</Text>
-                </View>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color="#9CA3AF"
-                />
-              </TouchableOpacity>
-              
-              <View style={styles.versionInfo}>
-                <Text style={styles.versionText}>Version 1.0.0</Text>
-                <Text style={styles.versionSubtext}>Made with ❤️ for families</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Sign Out Button */}
-          <TouchableOpacity 
-            style={[styles.signOutButton, isSigningOut && styles.signOutButtonDisabled]} 
-            onPress={handleSignOut}
-            disabled={isSigningOut}
-          >
-            {isSigningOut ? (
-              <ActivityIndicator color={colors.card} />
-            ) : (
-              <Text style={styles.signOutText}>Sign Out</Text>
-            )}
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={theme.dark ? '#98989D' : '#666'}
+            />
           </TouchableOpacity>
-        </ScrollView>
 
-        {/* Edit Profile Modal */}
-        <Modal
-          visible={showEditModal}
-          animationType="slide"
-          transparent
-          onRequestClose={() => setShowEditModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Edit Profile</Text>
-              <TextInput
-                style={commonStyles.input}
-                placeholder="Full Name"
-                placeholderTextColor={colors.textSecondary}
-                value={editName}
-                onChangeText={setEditName}
-                editable={!isSubmitting}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={signOut}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol
+                ios_icon_name="arrow.right.square"
+                android_material_icon_name="logout"
+                size={20}
+                color="#FF3B30"
               />
-              <TextInput
-                style={commonStyles.input}
-                placeholder="Phone (optional)"
-                placeholderTextColor={colors.textSecondary}
-                value={editPhone}
-                onChangeText={setEditPhone}
-                keyboardType="phone-pad"
-                editable={!isSubmitting}
-              />
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[buttonStyles.outline, styles.modalButton]}
-                  onPress={() => setShowEditModal(false)}
-                  disabled={isSubmitting}
-                >
-                  <Text style={buttonStyles.outlineText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[buttonStyles.primary, styles.modalButton]}
-                  onPress={handleUpdateProfile}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator color={colors.card} />
-                  ) : (
-                    <Text style={buttonStyles.text}>Save</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+              <Text style={[styles.menuItemText, { color: "#FF3B30" }]}>
+                Sign Out
+              </Text>
             </View>
-          </View>
-        </Modal>
-
-        {/* Notifications Modal */}
-        <Modal
-          visible={showNotificationsModal}
-          animationType="slide"
-          transparent
-          onRequestClose={() => setShowNotificationsModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, styles.notificationsModal]}>
-              <View style={styles.notificationsHeader}>
-                <Text style={styles.modalTitle}>Notifications</Text>
-                {unreadCount > 0 && (
-                  <TouchableOpacity onPress={handleMarkAllNotificationsRead}>
-                    <Text style={styles.markAllRead}>Mark all read</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              <ScrollView style={styles.notificationsList}>
-                {notificationsLoading ? (
-                  <ActivityIndicator size="large" color={colors.primary} />
-                ) : notifications.length > 0 ? (
-                  notifications.map((notif) => (
-                    <View
-                      key={notif.id}
-                      style={[
-                        styles.notificationCard,
-                        !notif.read && styles.unreadNotification,
-                      ]}
-                    >
-                      <Text style={styles.notificationTitle}>{notif.title}</Text>
-                      <Text style={styles.notificationMessage}>{notif.message}</Text>
-                      <Text style={styles.notificationTime}>
-                        {new Date(notif.createdAt).toLocaleString()}
-                      </Text>
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyText}>No notifications</Text>
-                  </View>
-                )}
-              </ScrollView>
-              <TouchableOpacity
-                style={[buttonStyles.primary, { marginTop: 16 }]}
-                onPress={() => setShowNotificationsModal(false)}
-              >
-                <Text style={buttonStyles.text}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Household Members Modal */}
-        <Modal
-          visible={showMembersModal}
-          animationType="slide"
-          transparent
-          onRequestClose={() => setShowMembersModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, styles.membersModal]}>
-              <Text style={styles.modalTitle}>Household Members</Text>
-              <ScrollView style={styles.membersList}>
-                {loadingMembers ? (
-                  <ActivityIndicator size="large" color={colors.primary} />
-                ) : householdMembers.length > 0 ? (
-                  householdMembers.map((member) => (
-                    <View key={member.id} style={styles.memberCard}>
-                      <View style={styles.memberAvatar}>
-                        <Text style={styles.memberAvatarText}>
-                          {member.name?.charAt(0).toUpperCase() || '?'}
-                        </Text>
-                      </View>
-                      <View style={styles.memberInfo}>
-                        <Text style={styles.memberName}>{member.name}</Text>
-                        <Text style={styles.memberEmail}>{member.email}</Text>
-                      </View>
-                      <View style={styles.memberRoleBadge}>
-                        <Text style={styles.memberRoleText}>{member.role}</Text>
-                      </View>
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyText}>No members found</Text>
-                  </View>
-                )}
-              </ScrollView>
-              <TouchableOpacity
-                style={[buttonStyles.primary, { marginTop: 16 }]}
-                onPress={() => setShowMembersModal(false)}
-              >
-                <Text style={buttonStyles.text}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      </View>
+          </TouchableOpacity>
+        </GlassView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -518,392 +78,44 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  contentContainer: {
+    padding: 20,
+  },
+  profileHeader: {
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  notificationButton: {
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: colors.error,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: colors.card,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  content: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
-  profileCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 12,
+    padding: 32,
     marginBottom: 16,
+    gap: 12,
   },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.card,
-  },
-  profileName: {
+  name: {
     fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
+    fontWeight: 'bold',
   },
-  profileEmail: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 12,
-  },
-  roleBadge: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  roleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.card,
-  },
-  editButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  editButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
+  email: {
+    fontSize: 16,
   },
   section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  householdCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  householdHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  householdName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  householdAddress: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  membersBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
-  },
-  membersCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  inviteCodeContainer: {
-    marginBottom: 16,
-  },
-  inviteCodeLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  inviteCodeBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    padding: 12,
-    borderRadius: 8,
-  },
-  inviteCode: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: 2,
-  },
-  householdActions: {
-    flexDirection: 'row',
     gap: 12,
   },
-  householdActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    gap: 8,
-  },
-  householdActionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  dangerButton: {
-    backgroundColor: colors.background,
-  },
-  dangerText: {
-    color: colors.error,
-  },
-  legalCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  legalLink: {
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
-  legalLinkContent: {
+  menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  legalLinkText: {
-    fontSize: 15,
-    color: '#4B5563',
-  },
-  versionInfo: {
-    alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  versionText: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    marginBottom: 4,
-  },
-  versionSubtext: {
-    fontSize: 12,
-    color: '#D1D5DB',
-  },
-  signOutButton: {
-    backgroundColor: colors.error,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  signOutButtonDisabled: {
-    opacity: 0.6,
-  },
-  signOutText: {
+  menuItemText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: colors.card,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 24,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-  },
-  notificationsModal: {
-    maxHeight: '80%',
-  },
-  notificationsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  markAllRead: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  notificationsList: {
-    maxHeight: 400,
-  },
-  notificationCard: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  unreadNotification: {
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-  },
-  notificationTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  notificationMessage: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  notificationTime: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  membersModal: {
-    maxHeight: '80%',
-  },
-  membersList: {
-    maxHeight: 400,
-  },
-  memberCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  memberAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  memberAvatarText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.card,
-  },
-  memberInfo: {
-    flex: 1,
-  },
-  memberName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 2,
-  },
-  memberEmail: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  memberRoleBadge: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  memberRoleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.card,
-  },
-  emptyState: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.textSecondary,
   },
 });
