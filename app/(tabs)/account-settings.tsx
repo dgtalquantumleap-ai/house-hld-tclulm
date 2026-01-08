@@ -18,6 +18,7 @@ import { IconSymbol } from "@/components/IconSymbol";
 import { GlassView } from "expo-glass-effect";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import Constants from "expo-constants";
 
 export default function AccountSettingsScreen() {
   const theme = useTheme();
@@ -29,12 +30,15 @@ export default function AccountSettingsScreen() {
   const handleDeleteAccount = async () => {
     if (!user) {
       console.log('[AccountSettings] No user found, cannot delete account');
+      Alert.alert('Error', 'You must be signed in to delete your account');
       return;
     }
 
     setIsDeleting(true);
     try {
       console.log('[AccountSettings] Starting account deletion process...');
+      console.log('[AccountSettings] Environment:', __DEV__ ? 'Development' : 'Production');
+      console.log('[AccountSettings] Platform:', Platform.OS);
 
       // Get the current session to get the access token
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -44,11 +48,17 @@ export default function AccountSettingsScreen() {
         throw new Error('Authentication required. Please sign in again.');
       }
 
-      // Get the project URL
-      const projectUrl = 'https://tkavowbmakdnqekweoro.supabase.co';
+      console.log('[AccountSettings] Session valid, access token present:', !!session.access_token);
+
+      // CRITICAL FIX: Use environment variable with proper fallback chain
+      const projectUrl = 
+        Constants.expoConfig?.extra?.supabaseUrl || 
+        process.env.EXPO_PUBLIC_SUPABASE_URL || 
+        'https://tkavowbmakdnqekweoro.supabase.co';
+      
       const functionUrl = `${projectUrl}/functions/v1/delete-account`;
       
-      console.log('[AccountSettings] Calling delete-account Edge Function...');
+      console.log('[AccountSettings] Calling delete-account Edge Function at:', functionUrl);
 
       // Call the Edge Function to permanently delete the account
       const response = await fetch(functionUrl, {
@@ -58,6 +68,8 @@ export default function AccountSettingsScreen() {
           'Content-Type': 'application/json',
         },
       });
+
+      console.log('[AccountSettings] Response status:', response.status);
 
       const result = await response.json();
 
@@ -96,8 +108,14 @@ export default function AccountSettingsScreen() {
   };
 
   const showDeleteConfirmation = () => {
+    console.log('[AccountSettings] Delete button pressed');
+    console.log('[AccountSettings] User authenticated:', !!user);
+    console.log('[AccountSettings] Environment:', __DEV__ ? 'Development' : 'Production');
     setShowDeleteModal(true);
   };
+
+  // Log component render for debugging
+  console.log('[AccountSettings] Rendering - User:', !!user, 'Environment:', __DEV__ ? 'Dev' : 'Prod');
 
   return (
     <SafeAreaView
@@ -137,9 +155,11 @@ export default function AccountSettingsScreen() {
             Danger Zone
           </Text>
           <Text style={[styles.sectionDescription, { color: theme.dark ? "#98989D" : "#666" }]}>
-            Permanently delete your account and all associated data.
+            Permanently delete your account and all associated data. This action cannot be undone.
           </Text>
 
+          {/* CRITICAL: Delete button is ALWAYS visible when user is authenticated */}
+          {/* NO __DEV__ or environment checks - required for App Store compliance */}
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={showDeleteConfirmation}
@@ -153,7 +173,32 @@ export default function AccountSettingsScreen() {
             />
             <Text style={styles.deleteButtonText}>Delete Account</Text>
           </TouchableOpacity>
+
+          {!user && (
+            <Text style={[styles.warningText, { color: theme.dark ? "#98989D" : "#666" }]}>
+              You must be signed in to delete your account
+            </Text>
+          )}
         </GlassView>
+
+        {/* Debug info - only in development */}
+        {__DEV__ && (
+          <View style={[styles.debugSection, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
+            <Text style={[styles.debugTitle, { color: theme.colors.text }]}>Debug Info (Dev Only)</Text>
+            <Text style={[styles.debugText, { color: theme.dark ? "#98989D" : "#666" }]}>
+              Environment: {__DEV__ ? 'Development' : 'Production'}
+            </Text>
+            <Text style={[styles.debugText, { color: theme.dark ? "#98989D" : "#666" }]}>
+              Platform: {Platform.OS}
+            </Text>
+            <Text style={[styles.debugText, { color: theme.dark ? "#98989D" : "#666" }]}>
+              User: {user ? user.email : 'Not signed in'}
+            </Text>
+            <Text style={[styles.debugText, { color: theme.dark ? "#98989D" : "#666" }]}>
+              Supabase URL: {Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || 'Using fallback'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Confirmation Modal */}
@@ -270,6 +315,25 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  warningText: {
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  debugSection: {
+    marginTop: 20,
+    borderRadius: 12,
+    padding: 16,
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  debugText: {
+    fontSize: 12,
+    marginBottom: 4,
   },
   modalOverlay: {
     flex: 1,

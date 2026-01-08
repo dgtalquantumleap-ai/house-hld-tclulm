@@ -15,6 +15,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
+import Constants from 'expo-constants';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -31,11 +32,21 @@ export default function SignupScreen() {
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const cardScale = useRef(new Animated.Value(0.9)).current;
 
+  // Log component mount for debugging
+  useEffect(() => {
+    console.log('[Signup] Component mounted');
+    console.log('[Signup] Environment:', __DEV__ ? 'Development' : 'Production');
+    console.log('[Signup] Platform:', Platform.OS);
+    console.log('[Signup] Supabase URL configured:', !!(Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL));
+  }, []);
+
   // Cleanup interval on unmount
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
 
     if (showSuccess) {
+      console.log('[Signup] Success modal shown, starting animations');
+      
       // Start animations
       Animated.parallel([
         Animated.timing(overlayOpacity, {
@@ -56,6 +67,7 @@ export default function SignupScreen() {
       interval = setInterval(() => {
         counter--;
         setCountdown(counter);
+        console.log('[Signup] Countdown:', counter);
         if (counter === 0) {
           if (interval) clearInterval(interval);
           handleNavigateToLogin();
@@ -71,45 +83,58 @@ export default function SignupScreen() {
   }, [showSuccess]);
 
   const handleNavigateToLogin = () => {
+    console.log('[Signup] Navigating to login');
     setShowSuccess(false);
     router.replace('/(auth)/login');
   };
 
   const handleSkip = () => {
+    console.log('[Signup] User skipped countdown');
     handleNavigateToLogin();
   };
 
   const handleSignup = async () => {
+    console.log('[Signup] Signup button pressed');
+    console.log('[Signup] Environment:', __DEV__ ? 'Development' : 'Production');
+    console.log('[Signup] Platform:', Platform.OS);
+    
     if (!name || !email || !password || !confirmPassword) {
+      console.log('[Signup] Validation failed: Missing fields');
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     if (password !== confirmPassword) {
+      console.log('[Signup] Validation failed: Passwords do not match');
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
+      console.log('[Signup] Validation failed: Password too short');
       Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
 
     setIsLoading(true);
     try {
-      console.log('Signup: Starting signup process for:', email);
+      console.log('[Signup] Starting signup process for:', email);
+      console.log('[Signup] Name:', name);
+      console.log('[Signup] Role: Adult (default)');
+      
       const result = await signUp(email, password, name, 'Adult');
       
       if (result.error) {
-        console.error('Signup error:', result.error);
+        console.error('[Signup] Signup error:', result.error);
         Alert.alert('Signup Failed', result.error);
       } else {
-        console.log('Signup successful - account and profile created');
+        console.log('[Signup] Signup successful - account and profile created');
+        console.log('[Signup] Showing success modal');
         // Show success modal instead of alert
         setShowSuccess(true);
       }
     } catch (error: any) {
-      console.error('Signup exception:', error);
+      console.error('[Signup] Signup exception:', error);
       Alert.alert('Error', error.message || 'Failed to create account. Please try again.');
     } finally {
       setIsLoading(false);
@@ -197,6 +222,22 @@ export default function SignupScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Debug info - only in development */}
+        {__DEV__ && (
+          <View style={styles.debugSection}>
+            <Text style={styles.debugTitle}>Debug Info (Dev Only)</Text>
+            <Text style={styles.debugText}>
+              Environment: {__DEV__ ? 'Development' : 'Production'}
+            </Text>
+            <Text style={styles.debugText}>
+              Platform: {Platform.OS}
+            </Text>
+            <Text style={styles.debugText}>
+              Supabase URL: {Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || 'Using fallback'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Success Modal */}
@@ -290,6 +331,23 @@ const styles = StyleSheet.create({
   linkTextBold: {
     fontWeight: '700',
     color: colors.primary,
+  },
+  debugSection: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: colors.text,
+  },
+  debugText: {
+    fontSize: 12,
+    marginBottom: 4,
+    color: colors.textSecondary,
   },
   // Success Modal Styles
   overlay: {

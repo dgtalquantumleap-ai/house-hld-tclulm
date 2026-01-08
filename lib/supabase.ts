@@ -5,25 +5,33 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-// Get environment variables with fallback for development
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 
+// CRITICAL: Get environment variables with proper fallback chain
+// Priority: 1. app.json extra config, 2. process.env, 3. hardcoded fallback
+const supabaseUrl = 
+  Constants.expoConfig?.extra?.supabaseUrl || 
   process.env.EXPO_PUBLIC_SUPABASE_URL || 
   'https://tkavowbmakdnqekweoro.supabase.co';
 
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || 
+const supabaseAnonKey = 
+  Constants.expoConfig?.extra?.supabaseAnonKey || 
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrYXZvd2JtYWtkbnFla3dlb3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NTMxOTgsImV4cCI6MjA4MDUyOTE5OH0.3tzrUDtmiMRAnyrXUDDnaLo0bUFVQqWJZy8KRRyNy1M';
 
 // Validate environment variables
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables');
-  throw new Error('Supabase configuration is missing. Please check your .env file.');
+  console.error('❌ CRITICAL: Missing Supabase environment variables');
+  console.error('supabaseUrl:', supabaseUrl ? 'Present' : 'MISSING');
+  console.error('supabaseAnonKey:', supabaseAnonKey ? 'Present' : 'MISSING');
+  throw new Error('Supabase configuration is missing. Please check your configuration.');
 }
 
-// Log configuration (without exposing full key)
-console.log('Supabase URL:', supabaseUrl);
-console.log('Supabase Key configured:', supabaseAnonKey ? 'Yes' : 'No');
-console.log('Platform:', Platform.OS);
+// Log configuration (without exposing full key) - PRODUCTION SAFE
+console.log('✅ Supabase Configuration:');
+console.log('  URL:', supabaseUrl);
+console.log('  Key configured:', supabaseAnonKey ? 'Yes' : 'No');
+console.log('  Key length:', supabaseAnonKey?.length || 0);
+console.log('  Platform:', Platform.OS);
+console.log('  Environment:', __DEV__ ? 'Development' : 'Production');
 
 // Custom storage adapter with better error handling
 const customStorage = {
@@ -64,17 +72,19 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web', // Only detect session in URL on web
     flowType: 'pkce', // Use PKCE flow for better security
-    debug: __DEV__, // Enable debug logging in development
+    debug: __DEV__, // Enable debug logging in development only
   },
   realtime: {
     params: {
-      // Enable info logging for debugging in development
+      // Enable info logging for debugging in development only
       log_level: __DEV__ ? 'info' : 'error',
       // Optimize reconnection timing - exponential backoff starting at 1 second
       reconnectAfterMs: (tries: number) => {
         // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
         const delay = Math.min(1000 * Math.pow(2, tries), 30000);
-        console.log(`[Realtime] Reconnecting in ${delay}ms (attempt ${tries + 1})`);
+        if (__DEV__) {
+          console.log(`[Realtime] Reconnecting in ${delay}ms (attempt ${tries + 1})`);
+        }
         return delay;
       },
       // Heartbeat interval to keep connection alive (30 seconds)
@@ -100,10 +110,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // This is the SINGLE SOURCE OF TRUTH for realtime auth management
 // All realtime channels will use the auth set here
 supabase.auth.onAuthStateChange(async (event, session) => {
-  console.log('[Supabase] ========================================');
-  console.log('[Supabase] Auth state changed:', event);
-  console.log('[Supabase] Session:', session ? 'exists' : 'null');
-  console.log('[Supabase] ========================================');
+  if (__DEV__) {
+    console.log('[Supabase] ========================================');
+    console.log('[Supabase] Auth state changed:', event);
+    console.log('[Supabase] Session:', session ? 'exists' : 'null');
+    console.log('[Supabase] ========================================');
+  }
   
   if (event === 'SIGNED_OUT') {
     console.log('[Supabase] User signed out, clearing realtime auth');
@@ -116,12 +128,16 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       console.error('[Supabase] ❌ Error clearing realtime auth:', error);
     }
   } else if (event === 'TOKEN_REFRESHED') {
-    console.log('[Supabase] Token refreshed, updating realtime auth');
+    if (__DEV__) {
+      console.log('[Supabase] Token refreshed, updating realtime auth');
+    }
     // CRITICAL: Update realtime auth when token is refreshed
     if (session?.access_token) {
       try {
         await supabase.realtime.setAuth(session.access_token);
-        console.log('[Supabase] ✅ Realtime auth updated with new token');
+        if (__DEV__) {
+          console.log('[Supabase] ✅ Realtime auth updated with new token');
+        }
       } catch (error) {
         console.error('[Supabase] ❌ Error updating realtime auth:', error);
       }
@@ -142,18 +158,24 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       console.error('[Supabase] ❌ SIGNED_IN but no access_token in session');
     }
   } else if (event === 'USER_UPDATED') {
-    console.log('[Supabase] User updated, refreshing realtime auth');
+    if (__DEV__) {
+      console.log('[Supabase] User updated, refreshing realtime auth');
+    }
     // CRITICAL: Ensure realtime auth is still valid on user update
     if (session?.access_token) {
       try {
         await supabase.realtime.setAuth(session.access_token);
-        console.log('[Supabase] ✅ Realtime auth refreshed on user update');
+        if (__DEV__) {
+          console.log('[Supabase] ✅ Realtime auth refreshed on user update');
+        }
       } catch (error) {
         console.error('[Supabase] ❌ Error refreshing realtime auth:', error);
       }
     }
   } else if (event === 'INITIAL_SESSION') {
-    console.log('[Supabase] Initial session loaded');
+    if (__DEV__) {
+      console.log('[Supabase] Initial session loaded');
+    }
     // CRITICAL: Set realtime auth for initial session
     if (session?.access_token) {
       try {
@@ -165,21 +187,23 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     }
   }
   
-  // Log session status (without exposing tokens)
-  if (session) {
+  // Log session status (without exposing tokens) - only in dev
+  if (__DEV__ && session) {
     console.log('[Supabase] Session active for user:', session.user?.email);
     console.log('[Supabase] Access token present:', !!session.access_token);
     console.log('[Supabase] Access token length:', session.access_token?.length || 0);
-  } else {
+  } else if (__DEV__) {
     console.log('[Supabase] No active session');
   }
   
-  console.log('[Supabase] ========================================');
+  if (__DEV__) {
+    console.log('[Supabase] ========================================');
+  }
 });
 
-// Monitor realtime connection status in development
+// Monitor realtime connection status in development only
 if (__DEV__) {
-  console.log('[Supabase] Realtime monitoring enabled');
+  console.log('[Supabase] Realtime monitoring enabled (dev mode)');
   
   // Log when realtime connects
   const originalConnect = supabase.realtime.connect.bind(supabase.realtime);
