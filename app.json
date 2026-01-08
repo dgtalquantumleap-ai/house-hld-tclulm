@@ -1,16 +1,17 @@
+
 {
   "expo": {
-    "name": "House HLD",
-    "slug": "House HLD",
+    "name": "HouseHLD",
+    "slug": "househld",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/natively-dark.png",
+    "icon": "./assets/images/final_quest_240x240.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/natively-dark.png",
+      "image": "./assets/images/final_quest_240x240.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#4A90E2"
     },
     "ios": {
       "supportsTablet": true,
@@ -21,8 +22,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/natively-dark.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/images/final_quest_240x240.png",
+        "backgroundColor": "#4A90E2"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.househld.app"
@@ -34,15 +35,7 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#000000",
-          "image": "./assets/images/natively-dark.png",
-          "imageWidth": 200
-        }
-      ]
+      "expo-web-browser"
     ],
     "scheme": "househld",
     "experiments": {
@@ -51,6 +44,5 @@
     "extra": {
       "router": {}
     }
-  },
-  "scheme": "House HLD"
+  }
 }
