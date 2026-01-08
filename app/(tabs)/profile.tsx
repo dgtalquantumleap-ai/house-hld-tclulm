@@ -1,271 +1,415 @@
 
-import { supabase } from '@/lib/supabase';
-import { IconSymbol } from '@/components/IconSymbol';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
-  Alert,
+  StyleSheet,
   ActivityIndicator,
-  Platform,
+  RefreshControl,
+  Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
-import { useRouter } from 'expo-router';
+import { useHousehold } from '@/hooks/useHousehold';
+import { User } from '@/types';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useState } from 'react';
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  section: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    color: colors.text,
-    fontSize: 16,
-  },
-  linkButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: colors.background,
-  },
-  linkButtonText: {
-    color: colors.primary,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  dangerButton: {
-    ...buttonStyles.danger,
-    marginTop: 8,
-  },
-  dangerButtonText: {
-    ...buttonStyles.dangerText,
-  },
-});
+import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const { user, signOut, updateUser } = useAuth();
-  const router = useRouter();
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [name, setName] = useState(user?.name || '');
-  const [phone, setPhone] = useState(user?.phone || '');
+  const { household, members, loading: householdLoading, refreshHousehold } = useHousehold();
+  const [refreshing, setRefreshing] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [editName, setEditName] = useState(user?.name || '');
+  const [editPhone, setEditPhone] = useState(user?.phone || '');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshHousehold();
+    setRefreshing(false);
+  };
 
   const handleSaveProfile = async () => {
-    if (!name.trim()) {
-      Alert.alert('Error', 'Name is required');
-      return;
-    }
-
-    setIsSaving(true);
     try {
-      await updateUser({ name: name.trim(), phone: phone.trim() });
+      await updateUser({ name: editName, phone: editPhone });
+      setEditModalVisible(false);
       Alert.alert('Success', 'Profile updated successfully');
-      setIsEditing(false);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update profile');
-    } finally {
-      setIsSaving(false);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update profile');
     }
   };
 
-  const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            router.replace('/(auth)/login');
-          },
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      // TODO: Backend Integration - Call the delete-account endpoint to permanently delete user data
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
         },
-      ]
-    );
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete account');
+      }
+
+      await signOut();
+      Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
+    } catch (error) {
+      console.log('Delete account error:', error);
+      Alert.alert('Error', 'Failed to delete account. Please try again.');
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalVisible(false);
+    }
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This will permanently delete your account and all associated data. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase.auth.admin.deleteUser(user?.id || '');
-              if (error) throw error;
-              await signOut();
-              router.replace('/(auth)/login');
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to delete account');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleOpenPrivacyPolicy = async () => {
-    await WebBrowser.openBrowserAsync('https://househld.app/privacy');
-  };
-
-  const handleOpenTermsOfService = async () => {
-    await WebBrowser.openBrowserAsync('https://househld.app/terms');
-  };
-
-  const handleOpenCookiesPolicy = async () => {
-    await WebBrowser.openBrowserAsync('https://househld.app/cookies');
+  const openLink = async (url: string) => {
+    await WebBrowser.openBrowserAsync(url);
   };
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={[commonStyles.centered, { flex: 1 }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </SafeAreaView>
+      <View style={[commonStyles.container, commonStyles.centerContent]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+    <View style={commonStyles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
         <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-          <Text style={styles.subtitle}>{user.email}</Text>
+          <View style={styles.avatarContainer}>
+            <IconSymbol ios_icon_name="person.circle.fill" android_material_icon_name="account-circle" size={80} color={colors.primary} />
+          </View>
+          <Text style={styles.name}>{user.name}</Text>
+          <Text style={styles.email}>{user.email}</Text>
+          <Text style={styles.role}>{user.role}</Text>
         </View>
 
+        <TouchableOpacity style={styles.editButton} onPress={() => setEditModalVisible(true)}>
+          <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={20} color={colors.primary} />
+          <Text style={styles.editButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
+
+        {household && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Household</Text>
+            <View style={styles.card}>
+              <Text style={styles.householdName}>{household.name}</Text>
+              {household.address && <Text style={styles.householdAddress}>{household.address}</Text>}
+            </View>
+          </View>
+        )}
+
+        {members && members.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Household Members</Text>
+            {members.map((member: User, index: number) => (
+              <View key={member.id || index} style={styles.memberCard}>
+                <IconSymbol ios_icon_name="person.fill" android_material_icon_name="person" size={24} color={colors.primary} />
+                <View style={styles.memberInfo}>
+                  <Text style={styles.memberName}>{member.name}</Text>
+                  <Text style={styles.memberRole}>{member.role}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Name"
-            placeholderTextColor={colors.textSecondary}
-            value={name}
-            onChangeText={setName}
-            editable={isEditing}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Phone (optional)"
-            placeholderTextColor={colors.textSecondary}
-            value={phone}
-            onChangeText={setPhone}
-            editable={isEditing}
-            keyboardType="phone-pad"
-          />
-          {isEditing ? (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Text style={styles.sectionTitle}>Legal</Text>
+          <TouchableOpacity style={styles.linkButton} onPress={() => openLink('https://househld.app/privacy')}>
+            <Text style={styles.linkText}>Privacy Policy</Text>
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron-right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.linkButton} onPress={() => openLink('https://househld.app/terms')}>
+            <Text style={styles.linkText}>Terms of Service</Text>
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron-right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.linkButton} onPress={() => openLink('https://househld.app/cookies')}>
+            <Text style={styles.linkText}>Cookie Policy</Text>
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron-right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={[buttonStyles.primary, styles.signOutButton]} onPress={signOut}>
+          <Text style={buttonStyles.text}>Sign Out</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.deleteButton]} 
+          onPress={() => setDeleteModalVisible(true)}
+        >
+          <Text style={styles.deleteButtonText}>Delete Account</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      <Modal visible={editModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Profile</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Name"
+              placeholderTextColor={colors.textSecondary}
+              value={editName}
+              onChangeText={setEditName}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Phone"
+              placeholderTextColor={colors.textSecondary}
+              value={editPhone}
+              onChangeText={setEditPhone}
+              keyboardType="phone-pad"
+            />
+            <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[buttonStyles.primary, { flex: 1 }]}
-                onPress={handleSaveProfile}
-                disabled={isSaving}
+                style={[buttonStyles.secondary, styles.modalButton]}
+                onPress={() => setEditModalVisible(false)}
               >
-                {isSaving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={buttonStyles.primaryText}>Save</Text>
-                )}
+                <Text style={buttonStyles.outlineText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[buttonStyles.secondary, { flex: 1 }]}
-                onPress={() => {
-                  setName(user.name || '');
-                  setPhone(user.phone || '');
-                  setIsEditing(false);
-                }}
+                style={[buttonStyles.primary, styles.modalButton]}
+                onPress={handleSaveProfile}
               >
-                <Text style={buttonStyles.secondaryText}>Cancel</Text>
+                <Text style={buttonStyles.text}>Save</Text>
               </TouchableOpacity>
             </View>
-          ) : (
-            <TouchableOpacity
-              style={buttonStyles.primary}
-              onPress={() => setIsEditing(true)}
-            >
-              <Text style={buttonStyles.primaryText}>Edit Profile</Text>
-            </TouchableOpacity>
-          )}
+          </View>
         </View>
+      </Modal>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Household</Text>
-          <TouchableOpacity
-            style={buttonStyles.secondary}
-            onPress={() => router.push('/(tabs)/household')}
-          >
-            <Text style={buttonStyles.secondaryText}>View Household Members</Text>
-          </TouchableOpacity>
+      <Modal visible={deleteModalVisible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Delete Account</Text>
+            <Text style={styles.warningText}>
+              This action cannot be undone. All your data will be permanently deleted.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[buttonStyles.secondary, styles.modalButton]}
+                onPress={() => setDeleteModalVisible(false)}
+                disabled={isDeleting}
+              >
+                <Text style={buttonStyles.outlineText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteButtonModal, styles.modalButton]}
+                onPress={handleDeleteAccount}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Legal & Privacy</Text>
-          <TouchableOpacity style={styles.linkButton} onPress={handleOpenPrivacyPolicy}>
-            <Text style={styles.linkButtonText}>Privacy Policy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.linkButton} onPress={handleOpenTermsOfService}>
-            <Text style={styles.linkButtonText}>Terms of Service</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.linkButton} onPress={handleOpenCookiesPolicy}>
-            <Text style={styles.linkButtonText}>Cookies Policy</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Actions</Text>
-          <TouchableOpacity style={buttonStyles.secondary} onPress={handleSignOut}>
-            <Text style={buttonStyles.secondaryText}>Sign Out</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.dangerButton} onPress={handleDeleteAccount}>
-            <Text style={styles.dangerButtonText}>Delete Account</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      </Modal>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  avatarContainer: {
+    marginBottom: 12,
+  },
+  name: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  email: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  role: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    margin: 16,
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  editButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  section: {
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  card: {
+    backgroundColor: colors.card,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  householdName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  householdAddress: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  memberCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  memberInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  memberName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  memberRole: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  linkButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  linkText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  signOutButton: {
+    margin: 16,
+    marginTop: 8,
+  },
+  deleteButton: {
+    margin: 16,
+    marginTop: 0,
+    marginBottom: 32,
+    backgroundColor: colors.error,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButtonModal: {
+    backgroundColor: colors.error,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+    marginBottom: 12,
+  },
+  warningText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+  },
+});
