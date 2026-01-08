@@ -35,16 +35,22 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/images/natively-dark.png",
+          "imageWidth": 200
+        }
+      ]
     ],
     "scheme": "househld",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "supabaseUrl": "https://tkavowbmakdnqekweoro.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrYXZvd2JtYWtkbnFla3dlb3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NTMxOTgsImV4cCI6MjA4MDUyOTE5OH0.3tzrUDtmiMRAnyrXUDDnaLo0bUFVQqWJZy8KRRyNy1M"
+      "router": {}
     }
   }
 }

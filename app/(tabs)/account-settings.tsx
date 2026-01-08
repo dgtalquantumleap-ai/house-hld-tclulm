@@ -37,8 +37,6 @@ export default function AccountSettingsScreen() {
     setIsDeleting(true);
     try {
       console.log('[AccountSettings] Starting account deletion process...');
-      console.log('[AccountSettings] Environment:', __DEV__ ? 'Development' : 'Production');
-      console.log('[AccountSettings] Platform:', Platform.OS);
 
       // Get the current session to get the access token
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -110,12 +108,8 @@ export default function AccountSettingsScreen() {
   const showDeleteConfirmation = () => {
     console.log('[AccountSettings] Delete button pressed');
     console.log('[AccountSettings] User authenticated:', !!user);
-    console.log('[AccountSettings] Environment:', __DEV__ ? 'Development' : 'Production');
     setShowDeleteModal(true);
   };
-
-  // Log component render for debugging
-  console.log('[AccountSettings] Rendering - User:', !!user, 'Environment:', __DEV__ ? 'Dev' : 'Prod');
 
   return (
     <SafeAreaView
@@ -180,25 +174,6 @@ export default function AccountSettingsScreen() {
             </Text>
           )}
         </GlassView>
-
-        {/* Debug info - only in development */}
-        {__DEV__ && (
-          <View style={[styles.debugSection, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
-            <Text style={[styles.debugTitle, { color: theme.colors.text }]}>Debug Info (Dev Only)</Text>
-            <Text style={[styles.debugText, { color: theme.dark ? "#98989D" : "#666" }]}>
-              Environment: {__DEV__ ? 'Development' : 'Production'}
-            </Text>
-            <Text style={[styles.debugText, { color: theme.dark ? "#98989D" : "#666" }]}>
-              Platform: {Platform.OS}
-            </Text>
-            <Text style={[styles.debugText, { color: theme.dark ? "#98989D" : "#666" }]}>
-              User: {user ? user.email : 'Not signed in'}
-            </Text>
-            <Text style={[styles.debugText, { color: theme.dark ? "#98989D" : "#666" }]}>
-              Supabase URL: {Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || 'Using fallback'}
-            </Text>
-          </View>
-        )}
       </ScrollView>
 
       {/* Confirmation Modal */}
@@ -320,20 +295,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
     marginTop: 8,
-  },
-  debugSection: {
-    marginTop: 20,
-    borderRadius: 12,
-    padding: 16,
-  },
-  debugTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  debugText: {
-    fontSize: 12,
-    marginBottom: 4,
   },
   modalOverlay: {
     flex: 1,
