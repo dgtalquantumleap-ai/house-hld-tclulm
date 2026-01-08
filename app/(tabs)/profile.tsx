@@ -3,65 +3,258 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-  Modal,
   TextInput,
+  Modal,
+  Alert,
+  Linking,
+  Platform,
 } from 'react-native';
-import { useHousehold } from '@/hooks/useHousehold';
-import { User } from '@/types';
-import { supabase } from '@/lib/supabase';
-import * as WebBrowser from 'expo-web-browser';
-import { useRouter } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
+import { useAuth } from '@/contexts/AuthContext';
+import { useHousehold } from '@/hooks/useHousehold';
 import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
+import * as Clipboard from 'expo-clipboard';
+import { useRouter } from 'expo-router';
+
+export default function ProfileScreen() {
+  const { user, signOut, updateUser } = useAuth();
+  const { household } = useHousehold();
+  const router = useRouter();
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState(user?.name || '');
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      Alert.alert('Error', 'Name cannot be empty');
+      return;
+    }
+    try {
+      await updateUser({ name: editName });
+      setEditModalVisible(false);
+      Alert.alert('Success', 'Profile updated successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update profile');
+    }
+  };
+
+  const handleCopyInviteCode = async () => {
+    if (household?.inviteCode) {
+      await Clipboard.setStringAsync(household.inviteCode);
+      Alert.alert('Copied!', 'Invite code copied to clipboard');
+    }
+  };
+
+  const handleSignOut = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+        },
+      },
+    ]);
+  };
+
+  const handleManageHousehold = () => {
+    router.push('/(tabs)/household');
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.contentContainer,
+          Platform.OS !== 'ios' && styles.contentContainerWithTabBar,
+        ]}
+      >
+        {/* USER INFO CARD */}
+        <View style={styles.profileHeader}>
+          <IconSymbol
+            ios_icon_name="person.circle.fill"
+            android_material_icon_name="person"
+            size={80}
+            color={colors.primary}
+          />
+          <Text style={styles.name}>{user?.name || 'User'}</Text>
+          <Text style={styles.email}>{user?.email}</Text>
+        </View>
+
+        {/* EDIT PROFILE SECTION */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Edit Profile</Text>
+          <TouchableOpacity
+            style={[buttonStyles.primary, styles.button]}
+            onPress={() => {
+              setEditName(user?.name || '');
+              setEditModalVisible(true);
+            }}
+          >
+            <Text style={buttonStyles.primaryText}>Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* HOUSEHOLD SECTION */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Household</Text>
+          {household ? (
+            <>
+              <View style={styles.infoRow}>
+                <IconSymbol
+                  ios_icon_name="house.fill"
+                  android_material_icon_name="home"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.infoText}>{household.name}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <IconSymbol
+                  ios_icon_name="key.fill"
+                  android_material_icon_name="vpn-key"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.infoText}>Invite Code: {household.inviteCode}</Text>
+              </View>
+              <TouchableOpacity
+                style={[buttonStyles.secondary, styles.button]}
+                onPress={handleCopyInviteCode}
+              >
+                <Text style={buttonStyles.secondaryText}>Copy Invite Code</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[buttonStyles.primary, styles.button]}
+                onPress={handleManageHousehold}
+              >
+                <Text style={buttonStyles.primaryText}>Manage Household</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={[buttonStyles.primary, styles.button]}
+              onPress={() => router.push('/household-setup')}
+            >
+              <Text style={buttonStyles.primaryText}>Join Household</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* LEGAL SECTION */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Legal</Text>
+          <TouchableOpacity
+            style={styles.linkButton}
+            onPress={() => Linking.openURL('https://househld.app/privacy')}
+          >
+            <Text style={styles.linkText}>Privacy Policy</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.linkButton}
+            onPress={() => Linking.openURL('https://househld.app/terms')}
+          >
+            <Text style={styles.linkText}>Terms of Service</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+          <Text style={styles.versionText}>Version 1.0.0</Text>
+        </View>
+
+        {/* SIGN OUT BUTTON */}
+        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* EDIT PROFILE MODAL */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Profile</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Display Name"
+              placeholderTextColor={colors.textSecondary}
+              value={editName}
+              onChangeText={setEditName}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[buttonStyles.secondary, styles.modalButton]}
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text style={buttonStyles.secondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[buttonStyles.primary, styles.modalButton]}
+                onPress={handleSaveProfile}
+              >
+                <Text style={buttonStyles.primaryText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollContent: {
-    padding: 16,
+  container: {
+    flex: 1,
   },
-  header: {
+  contentContainer: {
+    padding: 20,
+  },
+  contentContainerWithTabBar: {
+    paddingBottom: 100,
+  },
+  profileHeader: {
     alignItems: 'center',
-    marginBottom: 24,
-    paddingVertical: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 32,
+    marginBottom: 16,
+    gap: 12,
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  userName: {
+  name: {
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 4,
   },
-  userEmail: {
-    fontSize: 14,
+  email: {
+    fontSize: 16,
     color: colors.textSecondary,
   },
   section: {
-    backgroundColor: colors.cardBackground,
+    backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: 16,
+    padding: 20,
     marginBottom: 16,
   },
   sectionTitle: {
@@ -70,39 +263,59 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 12,
   },
-  menuItem: {
+  infoRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  button: {
+    marginTop: 8,
+  },
+  linkButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  menuItemLast: {
-    borderBottomWidth: 0,
-  },
-  menuItemText: {
-    flex: 1,
+  linkText: {
     fontSize: 16,
     color: colors.text,
-    marginLeft: 12,
+  },
+  versionText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 12,
+    textAlign: 'center',
   },
   signOutButton: {
-    ...buttonStyles.danger,
-    marginTop: 8,
+    backgroundColor: colors.error,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  signOutButtonText: {
-    ...buttonStyles.dangerText,
+  signOutText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: colors.cardBackground,
+    backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: 20,
+    padding: 24,
     width: '90%',
     maxWidth: 400,
   },
@@ -113,220 +326,18 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   input: {
-    ...commonStyles.input,
-    marginBottom: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+    marginBottom: 16,
   },
   modalButtons: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 16,
     gap: 12,
   },
   modalButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  cancelButton: {
-    backgroundColor: colors.border,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
+    flex: 1,
   },
 });
-
-export default function ProfileScreen() {
-  const { user, signOut, updateUser, refreshUserProfile } = useAuth();
-  const router = useRouter();
-  const { household, loading: householdLoading, refreshHousehold } = useHousehold();
-  const [refreshing, setRefreshing] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([refreshUserProfile(), refreshHousehold()]);
-    setRefreshing(false);
-  };
-
-  const handleSaveProfile = async () => {
-    if (!editName.trim()) {
-      Alert.alert('Error', 'Name cannot be empty');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await updateUser({
-        name: editName.trim(),
-        phone: editPhone.trim() || null,
-      });
-      setEditModalVisible(false);
-      Alert.alert('Success', 'Profile updated successfully');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update profile');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const openLink = async (url: string) => {
-    try {
-      await WebBrowser.openBrowserAsync(url);
-    } catch (error) {
-      Alert.alert('Error', 'Could not open link');
-    }
-  };
-
-  if (!user) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-      >
-        {/* User Info Section */}
-        <View style={styles.header}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user.name?.charAt(0).toUpperCase() || 'U'}</Text>
-          </View>
-          <Text style={styles.userName}>{user.name || 'User'}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
-        </View>
-
-        {/* Edit Profile Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Edit Profile</Text>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setEditName(user.name || '');
-              setEditPhone(user.phone || '');
-              setEditModalVisible(true);
-            }}
-          >
-            <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={20} color={colors.primary} />
-            <Text style={styles.menuItemText}>Edit Profile Information</Text>
-            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron-right" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Household Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Household</Text>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push('/(tabs)/household')}
-          >
-            <IconSymbol ios_icon_name="house.fill" android_material_icon_name="home" size={20} color={colors.primary} />
-            <Text style={styles.menuItemText}>
-              {household?.name || 'Manage Household'}
-            </Text>
-            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron-right" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Legal Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Legal</Text>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => openLink('https://example.com/privacy')}
-          >
-            <IconSymbol ios_icon_name="lock.shield" android_material_icon_name="security" size={20} color={colors.primary} />
-            <Text style={styles.menuItemText}>Privacy Policy</Text>
-            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron-right" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.menuItem, styles.menuItemLast]}
-            onPress={() => openLink('https://example.com/terms')}
-          >
-            <IconSymbol ios_icon_name="doc.text" android_material_icon_name="description" size={20} color={colors.primary} />
-            <Text style={styles.menuItemText}>Terms of Service</Text>
-            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron-right" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Sign Out Button */}
-        <TouchableOpacity
-          style={styles.signOutButton}
-          onPress={() => {
-            Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Sign Out',
-                style: 'destructive',
-                onPress: async () => {
-                  await signOut();
-                  router.replace('/(auth)/login');
-                },
-              },
-            ]);
-          }}
-        >
-          <Text style={styles.signOutButtonText}>Sign Out</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Edit Profile Modal */}
-      <Modal visible={editModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Profile</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Name"
-              placeholderTextColor={colors.textSecondary}
-              value={editName}
-              onChangeText={setEditName}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Phone (optional)"
-              placeholderTextColor={colors.textSecondary}
-              value={editPhone}
-              onChangeText={setEditPhone}
-              keyboardType="phone-pad"
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setEditModalVisible(false)}
-                disabled={saving}
-              >
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleSaveProfile}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.buttonText}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
-}
