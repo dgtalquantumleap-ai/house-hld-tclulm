@@ -43,7 +43,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [user]);
 
   async function registerForPushNotificationsAsync() {
-    if (!Device.isDevice) return null;
+    if (!Device.isDevice) {
+      console.log('Push notifications only work on physical devices');
+      return null;
+    }
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -53,10 +56,13 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       finalStatus = status;
     }
     
-    if (finalStatus !== 'granted') return null;
+    if (finalStatus !== 'granted') {
+      console.log('Push notification permissions not granted');
+      return null;
+    }
 
     const token = await Notifications.getExpoPushTokenAsync({
-      projectId: 'placeholder',
+      projectId: 'HouseHLD',
     });
 
     if (Platform.OS === 'android') {
@@ -66,6 +72,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       });
     }
 
+    console.log('Push token registered:', token.data);
     return token.data;
   }
 
@@ -77,8 +84,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         platform: Platform.OS,
         updated_at: new Date().toISOString(),
       });
+      console.log('Push token saved to database');
     } catch (error) {
-      console.error('Error saving token:', error);
+      console.error('Error saving push token:', error);
     }
   }
 
