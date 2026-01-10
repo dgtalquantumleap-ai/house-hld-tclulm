@@ -2,11 +2,12 @@
 import "react-native-reanimated";
 import React, { useEffect } from "react";
 import { useFonts } from "expo-font";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Platform } from "react-native";
+import { useColorScheme, Alert } from "react-native";
+import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
   DefaultTheme,
@@ -14,125 +15,42 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { NotificationsProvider } from "@/contexts/NotificationsProvider";
 import { RealtimeProvider } from "@/contexts/RealtimeProvider";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { setupGlobalErrorHandlers } from "@/utils/globalErrorHandler";
+import { WidgetProvider } from "@/contexts/WidgetContext";
 
-// Prevent auto-hide to control splash screen manually
+// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-// Configure splash screen animation (optional fade effect)
-SplashScreen.setOptions({
-  duration: 500,
-  fade: true,
-});
-
-function RootNavigator() {
-  const { isAuthenticated, isLoading, user } = useAuth();
-  const router = useRouter();
-  const segments = useSegments();
-
-  useEffect(() => {
-    console.log('RootNavigator: Auth state changed', {
-      isLoading,
-      isAuthenticated,
-      hasUser: !!user,
-      householdId: user?.householdId,
-      currentSegments: segments.join('/'),
-    });
-
-    if (isLoading) {
-      console.log('RootNavigator: Still loading, waiting...');
-      return;
-    }
-
-    // Determine which group we're in
-    const inAuthGroup = segments[0] === '(auth)';
-    const inTabsGroup = segments[0] === '(tabs)';
-    const onHouseholdSetup = segments[0] === 'household-setup';
-
-    console.log('RootNavigator: Current location', { inAuthGroup, inTabsGroup, onHouseholdSetup });
-
-    // Handle navigation based on auth state
-    if (!isAuthenticated) {
-      // Not authenticated - should be in auth group
-      if (!inAuthGroup) {
-        console.log('RootNavigator: Not authenticated, redirecting to auth');
-        setTimeout(() => {
-          router.replace('/(auth)/');
-        }, 100);
-      }
-    } else if (isAuthenticated && user) {
-      // Authenticated - check household status
-      if (!user.householdId) {
-        // No household - should be on household-setup
-        if (!onHouseholdSetup) {
-          console.log('RootNavigator: No household, redirecting to household-setup');
-          setTimeout(() => {
-            router.replace('/household-setup');
-          }, 100);
-        }
-      } else {
-        // Has household - should be in tabs
-        if (!inTabsGroup) {
-          console.log('RootNavigator: Has household, redirecting to home');
-          setTimeout(() => {
-            router.replace('/(tabs)/(home)/');
-          }, 100);
-        }
-      }
-    }
-  }, [isAuthenticated, isLoading, user?.householdId, segments]);
-
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen 
-        name="household-setup" 
-        options={{
-          presentation: 'card',
-        }}
-      />
-      <Stack.Screen 
-        name="modal" 
-        options={{
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
-        }}
-      />
-    </Stack>
-  );
-}
+export const unstable_settings = {
+  initialRouteName: "(tabs)", // Ensure any route can link back to `/`
+};
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const networkState = useNetworkState();
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
   useEffect(() => {
-    // Initialize global error handlers
-    setupGlobalErrorHandlers();
-  }, []);
-
-  useEffect(() => {
-    // Hide splash screen immediately when fonts are loaded
-    // This ensures no delay in app startup
     if (loaded) {
-      console.log('RootLayout: Fonts loaded, hiding splash screen');
-      SplashScreen.hideAsync().catch((error) => {
-        console.warn('Error hiding splash screen:', error);
-      });
+      SplashScreen.hideAsync();
     }
   }, [loaded]);
 
-  useEffect(() => {
-    // Log platform information for debugging
-    console.log('RootLayout: Platform:', Platform.OS);
-    console.log('RootLayout: Color scheme:', colorScheme);
-  }, []);
+  React.useEffect(() => {
+    if (
+      !networkState.isConnected &&
+      networkState.isInternetReachable === false
+    ) {
+      Alert.alert(
+        "🔌 You are offline",
+        "You can keep using the app! Your changes will be saved locally and synced when you are back online."
+      );
+    }
+  }, [networkState.isConnected, networkState.isInternetReachable]);
 
   if (!loaded) {
     return null;
@@ -142,42 +60,74 @@ export default function RootLayout() {
     ...DefaultTheme,
     dark: false,
     colors: {
-      primary: "#4CAF50",
-      background: "#F5F5F5",
-      card: "#FFFFFF",
-      text: "#333333",
-      border: "#E0E0E0",
-      notification: "#FF9800",
+      primary: "rgb(0, 122, 255)", // System Blue
+      background: "rgb(242, 242, 247)", // Light mode background
+      card: "rgb(255, 255, 255)", // White cards/surfaces
+      text: "rgb(0, 0, 0)", // Black text for light mode
+      border: "rgb(216, 216, 220)", // Light gray for separators/borders
+      notification: "rgb(255, 59, 48)", // System Red
     },
   };
 
   const CustomDarkTheme: Theme = {
     ...DarkTheme,
     colors: {
-      primary: "#4CAF50",
-      background: "#1A1A1A",
-      card: "#2A2A2A",
-      text: "#FFFFFF",
-      border: "#3A3A3A",
-      notification: "#FF9800",
+      primary: "rgb(10, 132, 255)", // System Blue (Dark Mode)
+      background: "rgb(1, 1, 1)", // True black background for OLED displays
+      card: "rgb(28, 28, 30)", // Dark card/surface color
+      text: "rgb(255, 255, 255)", // White text for dark mode
+      border: "rgb(44, 44, 46)", // Dark gray for separators/borders
+      notification: "rgb(255, 69, 58)", // System Red (Dark Mode)
     },
   };
-
   return (
-    <ErrorBoundary>
+    <>
       <StatusBar style="auto" animated />
-      <ThemeProvider
-        value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
-      >
-        <AuthProvider>
-          <RealtimeProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <RootNavigator />
-              <SystemBars style="auto" />
-            </GestureHandlerRootView>
-          </RealtimeProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+      <AuthProvider>
+        <ThemeProvider
+          value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
+        >
+          <NotificationsProvider>
+            <RealtimeProvider>
+              <WidgetProvider>
+                <GestureHandlerRootView>
+                  <Stack>
+                    {/* Main app with tabs */}
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+                    {/* Modal Demo Screens */}
+                    <Stack.Screen
+                      name="modal"
+                      options={{
+                        presentation: "modal",
+                        title: "Standard Modal",
+                      }}
+                    />
+                    <Stack.Screen
+                      name="formsheet"
+                      options={{
+                        presentation: "formSheet",
+                        title: "Form Sheet Modal",
+                        sheetGrabberVisible: true,
+                        sheetAllowedDetents: [0.5, 0.8, 1.0],
+                        sheetCornerRadius: 20,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="transparent-modal"
+                      options={{
+                        presentation: "transparentModal",
+                        headerShown: false,
+                      }}
+                    />
+                  </Stack>
+                  <SystemBars style={"auto"} />
+                </GestureHandlerRootView>
+              </WidgetProvider>
+            </RealtimeProvider>
+          </NotificationsProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </>
   );
 }
