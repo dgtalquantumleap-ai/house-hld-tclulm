@@ -1,8 +1,7 @@
-
 {
   "expo": {
-    "name": "HouseHLD",
-    "slug": "HouseHLD",
+    "name": "House HLD",
+    "slug": "House HLD",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/19eacc08-6026-4431-95bd-02a284b2c783.png",
@@ -44,5 +43,6 @@
     "extra": {
       "router": {}
     }
-  }
+  },
+  "scheme": "House HLD"
 }
