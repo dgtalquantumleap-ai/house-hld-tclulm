@@ -91,9 +91,20 @@ export default function RootLayout() {
             <RealtimeProvider>
               <WidgetProvider>
                 <GestureHandlerRootView>
-                  <Stack>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    {/* Auth screens */}
+                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                    
                     {/* Main app with tabs */}
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+                    {/* Household setup */}
+                    <Stack.Screen name="household-setup" options={{ headerShown: false }} />
+
+                    {/* Debug screens */}
+                    <Stack.Screen name="auth-debug" options={{ headerShown: false }} />
+                    <Stack.Screen name="error-test" options={{ headerShown: false }} />
+                    <Stack.Screen name="validation-dashboard" options={{ headerShown: false }} />
 
                     {/* Modal Demo Screens */}
                     <Stack.Screen
