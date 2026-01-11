@@ -60,6 +60,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="meals"
+        options={{
+          title: 'Meals',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name={focused ? 'restaurant' : 'restaurant-outline'} 
+              size={24} 
+              color={color} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="shopping"
         options={{
           title: 'Shopping',
@@ -90,13 +103,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="meals"
+        name="household"
         options={{
           href: null,
         }}
       />
       <Tabs.Screen
-        name="household"
+        name="account-settings"
         options={{
           href: null,
         }}
