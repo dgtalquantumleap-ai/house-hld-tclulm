@@ -19,35 +19,38 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
+        tabBarActiveTintColor: '#4A90E2',
+        tabBarInactiveTintColor: '#666666',
+        tabBarShowLabel: true,  // EXPLICITLY SET TO TRUE
         headerShown: false,
-        tabBarActiveTintColor: '#6366F1',
-        tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
+          height: 90,  // TALLER
+          paddingBottom: 25,  // MORE PADDING
+          paddingTop: 10,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
-          height: 85,
-          paddingBottom: 20,
-          paddingTop: 5,
         },
         tabBarLabelStyle: {
-          fontSize: 13,
-          marginBottom: 5,
-          marginTop: 2,
-          fontWeight: '500',
-        },
-        tabBarIconStyle: {
-          marginBottom: 2,
+          fontSize: 14,  // BIGGER - 13 → 14
+          marginBottom: 3,
+          marginTop: 0,
+          fontWeight: '600',  // BOLDER - 500 → 600
+          color: '#333333',  // EXPLICIT COLOR
         },
         tabBarItemStyle: {
-          paddingVertical: 5,
+          paddingVertical: 8,
+          height: 80,
+        },
+        tabBarIconStyle: {
+          marginBottom: 0,
         },
       }}
     >
       <Tabs.Screen
         name="(home)"
         options={{
-          title: 'Home',
+          title: 'Home',  // MUST HAVE
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -56,7 +59,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="tasks"
         options={{
-          title: 'Tasks',
+          title: 'Tasks',  // MUST HAVE
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="checkmark-circle" size={size} color={color} />
           ),
@@ -65,7 +68,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendar',
+          title: 'Calendar',  // MUST HAVE
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar" size={size} color={color} />
           ),
@@ -74,7 +77,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="shopping"
         options={{
-          title: 'Shopping',
+          title: 'Shopping',  // MUST HAVE
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cart" size={size} color={color} />
           ),
@@ -83,7 +86,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Profile',  // MUST HAVE
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
@@ -109,6 +112,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="household"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="account-settings"
         options={{
           href: null,
         }}
