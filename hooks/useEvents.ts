@@ -79,6 +79,7 @@ export function useEvents() {
           repeat: eventData.repeat || 'none',
           created_by_user_id: user.id,
           confirmation_status: eventData.confirmationStatus || 'pending',
+          reminder_minutes: eventData.reminderMinutes,
         }])
         .select()
         .single();
