@@ -1,5 +1,5 @@
 
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,7 +39,7 @@ export default function MealsScreen() {
         return;
       }
       
-      console.log('MealsScreen: Loaded meals:', data?.length || 0);
+      console.log('MealsScreen: Loaded meals:', data?.length || 0, 'meals');
       setMeals(data || []);
     } catch (e) {
       console.error('MealsScreen: Exception loading meals:', e);
@@ -59,17 +59,69 @@ export default function MealsScreen() {
       return;
     }
 
-    const name = prompt('Enter meal name:');
-    if (!name?.trim()) return;
-    
+    if (loading) {
+      console.log('MealsScreen: Already adding a meal, please wait');
+      return;
+    }
+
+    // Use Alert.prompt for iOS, Alert with input for Android
+    if (Platform.OS === 'ios') {
+      Alert.prompt(
+        'Add Meal',
+        'Enter meal name:',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'OK',
+            onPress: async (name) => {
+              if (!name?.trim()) {
+                console.log('MealsScreen: No meal name entered');
+                return;
+              }
+              await saveMeal(date, type, name.trim());
+            },
+          },
+        ],
+        'plain-text'
+      );
+    } else {
+      // For Android, use a simple alert with a workaround
+      // In a production app, you'd want to use a proper modal/dialog component
+      Alert.alert(
+        'Add Meal',
+        'What would you like to eat?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Eggs', 
+            onPress: () => saveMeal(date, type, 'Eggs')
+          },
+          { 
+            text: 'Pasta', 
+            onPress: () => saveMeal(date, type, 'Pasta')
+          },
+          { 
+            text: 'Salad', 
+            onPress: () => saveMeal(date, type, 'Salad')
+          },
+        ],
+        { cancelable: true }
+      );
+    }
+  }
+
+  async function saveMeal(date: Date, type: string, name: string) {
     setLoading(true);
     try {
       const mealData = {
-        household_id: user.householdId,
-        user_id: user.id,
+        household_id: user!.householdId,
+        user_id: user!.id,
         date: date.toISOString().split('T')[0],
         meal_type: type,
-        meal_name: name.trim(),
+        meal_name: name,
       };
       
       console.log('MealsScreen: Inserting meal:', mealData);
@@ -89,10 +141,14 @@ export default function MealsScreen() {
       console.log('MealsScreen: Meal added successfully:', data);
       
       // Optimistically add to UI
-      setMeals(prev => [...prev, data]);
+      if (data) {
+        setMeals(prev => [...prev, data]);
+      }
       
       // Reload to ensure sync
       await load();
+      
+      Alert.alert('Success', `${name} added to ${type}!`);
     } catch (e: any) {
       console.error('MealsScreen: Exception adding meal:', e);
       Alert.alert('Error', 'Failed to add meal: ' + e.message);
@@ -101,28 +157,41 @@ export default function MealsScreen() {
     }
   }
 
-  async function deleteMeal(mealId: string) {
-    try {
-      console.log('MealsScreen: Deleting meal:', mealId);
-      
-      const { error } = await supabase
-        .from('meal_plans')
-        .delete()
-        .eq('id', mealId);
-      
-      if (error) {
-        console.error('MealsScreen: Error deleting meal:', error);
-        Alert.alert('Error', 'Failed to delete meal');
-        return;
-      }
-      
-      console.log('MealsScreen: Meal deleted successfully');
-      
-      // Remove from UI
-      setMeals(prev => prev.filter(m => m.id !== mealId));
-    } catch (e) {
-      console.error('MealsScreen: Exception deleting meal:', e);
-    }
+  async function deleteMeal(mealId: string, mealName: string) {
+    Alert.alert(
+      'Delete Meal',
+      `Remove "${mealName}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('MealsScreen: Deleting meal:', mealId);
+              
+              const { error } = await supabase
+                .from('meal_plans')
+                .delete()
+                .eq('id', mealId);
+              
+              if (error) {
+                console.error('MealsScreen: Error deleting meal:', error);
+                Alert.alert('Error', 'Failed to delete meal');
+                return;
+              }
+              
+              console.log('MealsScreen: Meal deleted successfully');
+              
+              // Remove from UI
+              setMeals(prev => prev.filter(m => m.id !== mealId));
+            } catch (e) {
+              console.error('MealsScreen: Exception deleting meal:', e);
+            }
+          },
+        },
+      ]
+    );
   }
 
   const start = getStart(new Date());
@@ -152,19 +221,19 @@ export default function MealsScreen() {
             const dateStr = date.toISOString().split('T')[0];
             
             return (
-              <View key={d} style={s.col}>
+              <View key={i} style={s.col}>
                 <Text style={s.d}>{d}</Text>
                 <Text style={s.dateText}>{date.getDate()}</Text>
-                {types.map(type => {
+                {types.map((type, typeIndex) => {
                   const m = meals.find(x => 
                     x.date === dateStr && x.meal_type === type
                   );
                   return (
                     <TouchableOpacity 
-                      key={type} 
+                      key={typeIndex} 
                       style={[s.card, m && s.f]}
                       onPress={() => add(date, type)}
-                      onLongPress={() => m && deleteMeal(m.id)}
+                      onLongPress={() => m && deleteMeal(m.id, m.meal_name)}
                       disabled={loading}
                     >
                       <Text style={s.i}>{icons[type]}</Text>
