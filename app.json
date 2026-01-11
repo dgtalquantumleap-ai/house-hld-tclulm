@@ -1,23 +1,25 @@
 
 {
   "expo": {
-    "name": "House HLD",
-    "slug": "House HLD",
-    "version": "1.1.0",
+    "name": "Househld",
+    "slug": "househld",
+    "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/c2cfb9e9-4e90-4711-a5f2-1934478591be.png",
+    "icon": "./assets/images/0c365fa9-e8bb-4410-870f-b3f5a99fd37b.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/c2cfb9e9-4e90-4711-a5f2-1934478591be.png",
+      "image": "./assets/images/0c365fa9-e8bb-4410-870f-b3f5a99fd37b.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.HouseHLD",
-      "buildNumber": "11",
+      "bundleIdentifier": "com.yourcompany.househld",
+      "buildNumber": "6",
+      "icon": "./assets/images/0c365fa9-e8bb-4410-870f-b3f5a99fd37b.png",
       "infoPlist": {
+        "UIBackgroundModes": ["fetch", "remote-notification"],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -51,6 +53,5 @@
       "supabaseUrl": "https://tkavowbmakdnqekweoro.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrYXZvd2JtYWtkbnFla3dlb3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NTMxOTgsImV4cCI6MjA4MDUyOTE5OH0.3tzrUDtmiMRAnyrXUDDnaLo0bUFVQqWJZy8KRRyNy1M"
     }
-  },
-  "scheme": "House HLD"
+  }
 }
