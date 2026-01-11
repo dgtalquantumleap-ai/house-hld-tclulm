@@ -1,5 +1,5 @@
 
-import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,16 +28,19 @@ export default function MealsScreen() {
   }
 
   async function add(date: Date, type: string) {
-    Alert.prompt('Meal', 'Name:', async (name) => {
-      if (!name) return;
+    const name = prompt('Enter meal name:');
+    if (!name?.trim()) return;
+    try {
       await supabase.from('meal_plans').insert({
         date: date.toISOString().split('T')[0],
         meal_type: type,
-        meal_name: name,
+        meal_name: name.trim(),
         user_id: user?.id,
       });
       load();
-    });
+    } catch (e) {
+      console.error('Error adding meal:', e);
+    }
   }
 
   const start = getStart(new Date());
