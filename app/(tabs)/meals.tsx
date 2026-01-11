@@ -1,6 +1,6 @@
 
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
-import { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform, TextInput } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -8,6 +8,11 @@ export default function MealsScreen() {
   const { user } = useAuth();
   const [meals, setMeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showInput, setShowInput] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedType, setSelectedType] = useState<string>('');
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => { 
     console.log('MealsScreen: Loading meals for user:', user?.id, 'household:', user?.householdId);
@@ -64,7 +69,9 @@ export default function MealsScreen() {
       return;
     }
 
-    // Use Alert.prompt for iOS, Alert with input for Android
+    console.log('MealsScreen: Add button pressed for', type, 'on', date.toISOString().split('T')[0]);
+
+    // Use Alert.prompt for iOS
     if (Platform.OS === 'ios') {
       Alert.prompt(
         'Add Meal',
@@ -88,28 +95,15 @@ export default function MealsScreen() {
         'plain-text'
       );
     } else {
-      // For Android, use a simple alert with a workaround
-      // In a production app, you'd want to use a proper modal/dialog component
-      Alert.alert(
-        'Add Meal',
-        'What would you like to eat?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Eggs', 
-            onPress: () => saveMeal(date, type, 'Eggs')
-          },
-          { 
-            text: 'Pasta', 
-            onPress: () => saveMeal(date, type, 'Pasta')
-          },
-          { 
-            text: 'Salad', 
-            onPress: () => saveMeal(date, type, 'Salad')
-          },
-        ],
-        { cancelable: true }
-      );
+      // For Android and web, show inline input
+      setSelectedDate(date);
+      setSelectedType(type);
+      setInputValue('');
+      setShowInput(true);
+      // Focus input after a short delay to ensure it's rendered
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
     }
   }
 
@@ -154,7 +148,20 @@ export default function MealsScreen() {
       Alert.alert('Error', 'Failed to add meal: ' + e.message);
     } finally {
       setLoading(false);
+      setShowInput(false);
+      setInputValue('');
+      setSelectedDate(null);
+      setSelectedType('');
     }
+  }
+
+  async function handleInputSubmit() {
+    if (!inputValue.trim() || !selectedDate || !selectedType) {
+      setShowInput(false);
+      setInputValue('');
+      return;
+    }
+    await saveMeal(selectedDate, selectedType, inputValue.trim());
   }
 
   async function deleteMeal(mealId: string, mealName: string) {
@@ -210,10 +217,14 @@ export default function MealsScreen() {
   }
 
   return (
-    <ScrollView style={s.c}>
+    <View style={s.c}>
       <Text style={s.t}>Weekly Meals</Text>
       <Text style={s.subtitle}>Tap a card to add or change a meal</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={true}
+        contentContainerStyle={{ paddingRight: 16 }}
+      >
         <View style={s.g}>
           {days.map((d, i) => {
             const date = new Date(start);
@@ -232,9 +243,13 @@ export default function MealsScreen() {
                     <TouchableOpacity 
                       key={typeIndex} 
                       style={[s.card, m && s.f]}
-                      onPress={() => add(date, type)}
+                      onPress={() => {
+                        console.log('Card pressed:', type, dateStr);
+                        add(date, type);
+                      }}
                       onLongPress={() => m && deleteMeal(m.id, m.meal_name)}
                       disabled={loading}
+                      activeOpacity={0.7}
                     >
                       <Text style={s.i}>{icons[type]}</Text>
                       <Text style={s.n} numberOfLines={2}>
@@ -251,7 +266,46 @@ export default function MealsScreen() {
           })}
         </View>
       </ScrollView>
-    </ScrollView>
+
+      {/* Input Modal for Android/Web */}
+      {showInput && Platform.OS !== 'ios' && (
+        <View style={s.inputModal}>
+          <View style={s.inputContainer}>
+            <Text style={s.inputTitle}>Add Meal</Text>
+            <Text style={s.inputSubtitle}>Enter meal name:</Text>
+            <TextInput
+              ref={inputRef}
+              style={s.input}
+              value={inputValue}
+              onChangeText={setInputValue}
+              placeholder="e.g., Eggs, Pasta, Salad"
+              onSubmitEditing={handleInputSubmit}
+              returnKeyType="done"
+              autoCapitalize="words"
+            />
+            <View style={s.inputButtons}>
+              <TouchableOpacity 
+                style={[s.inputButton, s.cancelButton]}
+                onPress={() => {
+                  setShowInput(false);
+                  setInputValue('');
+                  setSelectedDate(null);
+                  setSelectedType('');
+                }}
+              >
+                <Text style={s.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[s.inputButton, s.okButton]}
+                onPress={handleInputSubmit}
+              >
+                <Text style={s.okButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -260,7 +314,7 @@ const s = StyleSheet.create({
   t: { fontSize: 24, fontWeight: 'bold', padding: 16, paddingBottom: 4 },
   subtitle: { fontSize: 14, color: '#666', paddingHorizontal: 16, paddingBottom: 12 },
   g: { flexDirection: 'row', padding: 8 },
-  col: { width: 110, marginRight: 8 },
+  col: { width: 100, marginRight: 8 },
   d: { fontWeight: 'bold', textAlign: 'center', marginBottom: 2, fontSize: 14 },
   dateText: { textAlign: 'center', fontSize: 12, color: '#666', marginBottom: 8 },
   card: { 
@@ -275,4 +329,68 @@ const s = StyleSheet.create({
   i: { fontSize: 20, textAlign: 'center' },
   n: { fontSize: 12, textAlign: 'center', marginTop: 4, fontWeight: '500' },
   hint: { fontSize: 9, textAlign: 'center', color: '#999', marginTop: 2 },
+  inputModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inputContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxWidth: 400,
+  },
+  inputTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  inputSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  inputButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  inputButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+  },
+  okButton: {
+    backgroundColor: '#2196F3',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  okButtonText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
+  },
 });
