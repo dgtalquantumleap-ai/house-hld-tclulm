@@ -7,14 +7,14 @@ export function CustomSplashScreen() {
   const isDark = colorScheme === 'dark';
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#1A1A1A' : '#F5F7FA' }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
       <Image
-        source={require('../assets/images/d0b91751-d7d5-4486-a5c4-71cf4d50c705.png')}
+        source={require('../assets/images/natively-dark.png')}
         style={styles.icon}
         resizeMode="contain"
       />
-      <Text style={[styles.appName, { color: isDark ? '#FFFFFF' : '#333333' }]}>
-        HOUSEHLD
+      <Text style={[styles.appName, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+        NATIVELY
       </Text>
     </View>
   );
