@@ -5,11 +5,11 @@
     "slug": "House HLD",
     "version": "1.1.0",
     "orientation": "portrait",
-    "icon": "./assets/images/342d6f1f-9bbc-4d4a-b7ee-53db01ab96fe.png",
+    "icon": "./assets/images/c2cfb9e9-4e90-4711-a5f2-1934478591be.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/342d6f1f-9bbc-4d4a-b7ee-53db01ab96fe.png",
+      "image": "./assets/images/c2cfb9e9-4e90-4711-a5f2-1934478591be.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
