@@ -26,22 +26,22 @@ export default function TabLayout() {
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
-          height: 80,
-          paddingBottom: 15,
-          paddingTop: 8,
+          height: 85,
+          paddingBottom: 20,
+          paddingTop: 5,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          marginBottom: 8,
-          marginTop: -3,
+          fontSize: 13,
+          marginBottom: 5,
+          marginTop: 2,
+          fontWeight: '500',
         },
         tabBarIconStyle: {
-          marginTop: 5,
+          marginBottom: 2,
         },
         tabBarItemStyle: {
           paddingVertical: 5,
         },
-        tabBarLabelPosition: 'below-icon',
       }}
     >
       <Tabs.Screen
