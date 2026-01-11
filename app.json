@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.HouseHLD",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -28,7 +28,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.HouseHLD",
-      "versionCode": 9
+      "versionCode": 10
     },
     "web": {
       "favicon": "./assets/images/natively-dark.png",
@@ -47,7 +47,9 @@
       "router": {},
       "eas": {
         "projectId": "5aad831f"
-      }
+      },
+      "supabaseUrl": "https://tkavowbmakdnqekweoro.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrYXZvd2JtYWtkbnFla3dlb3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NTMxOTgsImV4cCI6MjA4MDUyOTE5OH0.3tzrUDtmiMRAnyrXUDDnaLo0bUFVQqWJZy8KRRyNy1M"
     }
   },
   "scheme": "househld"

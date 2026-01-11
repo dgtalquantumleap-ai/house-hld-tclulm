@@ -12,31 +12,39 @@ export default function MealsScreen() {
   const [inputValue, setInputValue] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedType, setSelectedType] = useState<string>('');
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => { 
-    console.log('MealsScreen: Component mounted');
-    console.log('MealsScreen: User ID:', user?.id);
-    console.log('MealsScreen: Household ID:', user?.householdId);
-    console.log('MealsScreen: Platform:', Platform.OS);
+    console.log('MealsScreen iOS: Component mounted');
+    console.log('MealsScreen iOS: User ID:', user?.id);
+    console.log('MealsScreen iOS: Household ID:', user?.householdId);
+    setDebugInfo(`User: ${user?.id?.substring(0, 8)}... | HH: ${user?.householdId?.substring(0, 8)}...`);
     load(); 
   }, [user?.householdId]);
 
   async function load() {
     try {
-      console.log('MealsScreen: Starting load function');
+      console.log('MealsScreen iOS: Starting load function');
       
       if (!user?.householdId) {
-        console.log('MealsScreen: No household ID, skipping load');
+        console.log('MealsScreen iOS: No household ID, skipping load');
+        setDebugInfo('No household - join one to see meals');
         return;
       }
 
       // Check auth session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log('MealsScreen: Session check:', session ? 'exists' : 'null', sessionError ? `Error: ${sessionError.message}` : '');
+      console.log('MealsScreen iOS: Session check:', session ? 'exists' : 'null');
+      
+      if (sessionError) {
+        console.error('MealsScreen iOS: Session error:', sessionError);
+        setDebugInfo(`Session error: ${sessionError.message}`);
+      }
       
       if (!session) {
-        console.error('MealsScreen: No active session - meals cannot be loaded');
+        console.error('MealsScreen iOS: No active session');
+        setDebugInfo('No session - please log out and back in');
         Alert.alert('Session Error', 'Please log out and log back in to view meals.');
         return;
       }
@@ -48,8 +56,10 @@ export default function MealsScreen() {
       const startStr = start.toISOString().split('T')[0];
       const endStr = end.toISOString().split('T')[0];
       
-      console.log('MealsScreen: Loading meals from', startStr, 'to', endStr);
-      console.log('MealsScreen: For household:', user.householdId);
+      console.log('MealsScreen iOS: Loading meals from', startStr, 'to', endStr);
+      console.log('MealsScreen iOS: For household:', user.householdId);
+      
+      setDebugInfo(`Loading ${startStr} to ${endStr}...`);
       
       const { data, error } = await supabase
         .from('meal_plans')
@@ -59,23 +69,33 @@ export default function MealsScreen() {
         .lte('date', endStr);
       
       if (error) {
-        console.error('MealsScreen: Error loading meals:', error);
-        console.error('MealsScreen: Error details:', JSON.stringify(error));
-        Alert.alert('Error Loading Meals', `Failed to load meals: ${error.message}`);
+        console.error('MealsScreen iOS: Error loading meals:', error);
+        console.error('MealsScreen iOS: Error code:', error.code);
+        console.error('MealsScreen iOS: Error message:', error.message);
+        console.error('MealsScreen iOS: Error details:', error.details);
+        setDebugInfo(`Error: ${error.message}`);
+        Alert.alert('Error Loading Meals', `Failed to load meals: ${error.message}\n\nPlease try logging out and back in.`);
         return;
       }
       
-      console.log('MealsScreen: Query successful');
-      console.log('MealsScreen: Loaded', data?.length || 0, 'meals');
+      console.log('MealsScreen iOS: Query successful');
+      console.log('MealsScreen iOS: Loaded', data?.length || 0, 'meals');
+      
       if (data && data.length > 0) {
-        console.log('MealsScreen: First meal:', JSON.stringify(data[0]));
+        console.log('MealsScreen iOS: First meal:', JSON.stringify(data[0]));
+        setDebugInfo(`Loaded ${data.length} meals successfully`);
+      } else {
+        console.log('MealsScreen iOS: No meals found for this week');
+        setDebugInfo(`No meals for ${startStr} to ${endStr}`);
       }
       
       setMeals(data || []);
     } catch (e: any) {
-      console.error('MealsScreen: Exception loading meals:', e);
-      console.error('MealsScreen: Exception details:', e.message, e.stack);
-      Alert.alert('Error', `Failed to load meals: ${e.message}`);
+      console.error('MealsScreen iOS: Exception loading meals:', e);
+      console.error('MealsScreen iOS: Exception message:', e.message);
+      console.error('MealsScreen iOS: Exception stack:', e.stack);
+      setDebugInfo(`Exception: ${e.message}`);
+      Alert.alert('Error', `Failed to load meals: ${e.message}\n\nPlease try restarting the app.`);
     }
   }
 
@@ -87,7 +107,7 @@ export default function MealsScreen() {
     n.setDate(n.getDate() - day + (day === 0 ? -6 : 1));
     // Reset time to midnight to avoid timezone issues
     n.setHours(0, 0, 0, 0);
-    console.log('MealsScreen: Week start calculated as:', n.toISOString());
+    console.log('MealsScreen iOS: Week start calculated as:', n.toISOString());
     return n;
   }
 
@@ -98,47 +118,35 @@ export default function MealsScreen() {
     }
 
     if (loading) {
-      console.log('MealsScreen: Already adding a meal, please wait');
+      console.log('MealsScreen iOS: Already adding a meal, please wait');
       return;
     }
 
     const dateStr = date.toISOString().split('T')[0];
-    console.log('MealsScreen: Add button pressed for', type, 'on', dateStr);
+    console.log('MealsScreen iOS: Add button pressed for', type, 'on', dateStr);
 
     // Use Alert.prompt for iOS
-    if (Platform.OS === 'ios') {
-      Alert.prompt(
-        'Add Meal',
-        'Enter meal name:',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
+    Alert.prompt(
+      'Add Meal',
+      'Enter meal name:',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'OK',
+          onPress: async (name) => {
+            if (!name?.trim()) {
+              console.log('MealsScreen iOS: No meal name entered');
+              return;
+            }
+            await saveMeal(date, type, name.trim());
           },
-          {
-            text: 'OK',
-            onPress: async (name) => {
-              if (!name?.trim()) {
-                console.log('MealsScreen: No meal name entered');
-                return;
-              }
-              await saveMeal(date, type, name.trim());
-            },
-          },
-        ],
-        'plain-text'
-      );
-    } else {
-      // For Android and web, show inline input
-      setSelectedDate(date);
-      setSelectedType(type);
-      setInputValue('');
-      setShowInput(true);
-      // Focus input after a short delay to ensure it's rendered
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
+        },
+      ],
+      'plain-text'
+    );
   }
 
   async function saveMeal(date: Date, type: string, name: string) {
@@ -147,7 +155,7 @@ export default function MealsScreen() {
       // Check auth session before saving
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (!session) {
-        console.error('MealsScreen: No active session - cannot save meal');
+        console.error('MealsScreen iOS: No active session - cannot save meal');
         Alert.alert('Session Error', 'Please log out and log back in to add meals.');
         setLoading(false);
         return;
@@ -162,7 +170,7 @@ export default function MealsScreen() {
         meal_name: name,
       };
       
-      console.log('MealsScreen: Inserting meal:', JSON.stringify(mealData));
+      console.log('MealsScreen iOS: Inserting meal:', JSON.stringify(mealData));
       
       const { data, error } = await supabase
         .from('meal_plans')
@@ -171,13 +179,13 @@ export default function MealsScreen() {
         .single();
       
       if (error) {
-        console.error('MealsScreen: Error adding meal:', error);
-        console.error('MealsScreen: Error details:', JSON.stringify(error));
+        console.error('MealsScreen iOS: Error adding meal:', error);
+        console.error('MealsScreen iOS: Error details:', JSON.stringify(error));
         Alert.alert('Error', 'Failed to add meal: ' + error.message);
         return;
       }
       
-      console.log('MealsScreen: Meal added successfully:', JSON.stringify(data));
+      console.log('MealsScreen iOS: Meal added successfully:', JSON.stringify(data));
       
       // Optimistically add to UI
       if (data) {
@@ -189,25 +197,12 @@ export default function MealsScreen() {
       
       Alert.alert('Success', `${name} added to ${type}!`);
     } catch (e: any) {
-      console.error('MealsScreen: Exception adding meal:', e);
-      console.error('MealsScreen: Exception details:', e.message, e.stack);
+      console.error('MealsScreen iOS: Exception adding meal:', e);
+      console.error('MealsScreen iOS: Exception details:', e.message, e.stack);
       Alert.alert('Error', 'Failed to add meal: ' + e.message);
     } finally {
       setLoading(false);
-      setShowInput(false);
-      setInputValue('');
-      setSelectedDate(null);
-      setSelectedType('');
     }
-  }
-
-  async function handleInputSubmit() {
-    if (!inputValue.trim() || !selectedDate || !selectedType) {
-      setShowInput(false);
-      setInputValue('');
-      return;
-    }
-    await saveMeal(selectedDate, selectedType, inputValue.trim());
   }
 
   async function deleteMeal(mealId: string, mealName: string) {
@@ -221,7 +216,7 @@ export default function MealsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('MealsScreen: Deleting meal:', mealId);
+              console.log('MealsScreen iOS: Deleting meal:', mealId);
               
               const { error } = await supabase
                 .from('meal_plans')
@@ -229,17 +224,17 @@ export default function MealsScreen() {
                 .eq('id', mealId);
               
               if (error) {
-                console.error('MealsScreen: Error deleting meal:', error);
+                console.error('MealsScreen iOS: Error deleting meal:', error);
                 Alert.alert('Error', 'Failed to delete meal');
                 return;
               }
               
-              console.log('MealsScreen: Meal deleted successfully');
+              console.log('MealsScreen iOS: Meal deleted successfully');
               
               // Remove from UI
               setMeals(prev => prev.filter(m => m.id !== mealId));
             } catch (e) {
-              console.error('MealsScreen: Exception deleting meal:', e);
+              console.error('MealsScreen iOS: Exception deleting meal:', e);
             }
           },
         },
@@ -254,8 +249,8 @@ export default function MealsScreen() {
 
   if (!user?.householdId) {
     return (
-      <View style={[s.c, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ fontSize: 16, color: '#666' }}>
+      <View style={[s.c, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={{ fontSize: 16, color: '#666', textAlign: 'center' }}>
           Join a household to start planning meals
         </Text>
       </View>
@@ -266,9 +261,7 @@ export default function MealsScreen() {
     <View style={s.c}>
       <Text style={s.t}>Weekly Meals</Text>
       <Text style={s.subtitle}>Tap a card to add or change a meal</Text>
-      <Text style={s.debugInfo}>
-        Loaded {meals.length} meals for household
-      </Text>
+      <Text style={s.debugInfo}>{debugInfo}</Text>
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={true}
@@ -315,45 +308,6 @@ export default function MealsScreen() {
           })}
         </View>
       </ScrollView>
-
-      {/* Input Modal for Android/Web */}
-      {showInput && Platform.OS !== 'ios' && (
-        <View style={s.inputModal}>
-          <View style={s.inputContainer}>
-            <Text style={s.inputTitle}>Add Meal</Text>
-            <Text style={s.inputSubtitle}>Enter meal name:</Text>
-            <TextInput
-              ref={inputRef}
-              style={s.input}
-              value={inputValue}
-              onChangeText={setInputValue}
-              placeholder="e.g., Eggs, Pasta, Salad"
-              onSubmitEditing={handleInputSubmit}
-              returnKeyType="done"
-              autoCapitalize="words"
-            />
-            <View style={s.inputButtons}>
-              <TouchableOpacity 
-                style={[s.inputButton, s.cancelButton]}
-                onPress={() => {
-                  setShowInput(false);
-                  setInputValue('');
-                  setSelectedDate(null);
-                  setSelectedType('');
-                }}
-              >
-                <Text style={s.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[s.inputButton, s.okButton]}
-                onPress={handleInputSubmit}
-              >
-                <Text style={s.okButtonText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -362,7 +316,14 @@ const s = StyleSheet.create({
   c: { flex: 1, backgroundColor: '#fff' },
   t: { fontSize: 24, fontWeight: 'bold', padding: 16, paddingBottom: 4 },
   subtitle: { fontSize: 14, color: '#666', paddingHorizontal: 16, paddingBottom: 4 },
-  debugInfo: { fontSize: 12, color: '#999', paddingHorizontal: 16, paddingBottom: 12, fontStyle: 'italic' },
+  debugInfo: { 
+    fontSize: 11, 
+    color: '#999', 
+    paddingHorizontal: 16, 
+    paddingBottom: 12, 
+    fontStyle: 'italic',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace'
+  },
   g: { flexDirection: 'row', padding: 8 },
   col: { width: 100, marginRight: 8 },
   d: { fontWeight: 'bold', textAlign: 'center', marginBottom: 2, fontSize: 14 },
@@ -379,68 +340,4 @@ const s = StyleSheet.create({
   i: { fontSize: 20, textAlign: 'center' },
   n: { fontSize: 12, textAlign: 'center', marginTop: 4, fontWeight: '500' },
   hint: { fontSize: 9, textAlign: 'center', color: '#999', marginTop: 2 },
-  inputModal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  inputContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    width: '80%',
-    maxWidth: 400,
-  },
-  inputTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  inputSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  inputButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  inputButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#f5f5f5',
-  },
-  okButton: {
-    backgroundColor: '#2196F3',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '600',
-  },
-  okButtonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '600',
-  },
 });
