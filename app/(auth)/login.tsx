@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { supabase } from '@/lib/supabase';
 
 // CONFIGURATION: Set these to true when OAuth providers are enabled in Supabase
 const GOOGLE_OAUTH_ENABLED = false;
@@ -22,7 +23,7 @@ const APPLE_OAUTH_ENABLED = false;
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, signInWithGoogle, signInWithApple, resendConfirmationEmail } = useAuth();
+  const { signInWithGoogle, signInWithApple, resendConfirmationEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -30,22 +31,59 @@ export default function LoginScreen() {
   const [isResending, setIsResending] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
+    // Prevent double-tap
+    if (isLoading) return;
 
     setIsLoading(true);
     setShowResendButton(false);
+
+    // Clean and validate inputs
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      Alert.alert('Error', 'Please enter email and password');
+      setIsLoading(false);
+      return;
+    }
+
+    // Create timeout promise (10 seconds)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Timeout')), 10000)
+    );
+
     try {
       console.log('Login: Attempting to sign in');
-      const result = await signIn(email, password);
       
-      if (result.error) {
-        console.error('Login error:', result.error);
-        
-        // Check if the error is related to email confirmation
-        const errorMessage = result.error.toLowerCase();
+      // Race between sign-in and timeout
+      const signInPromise = supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+
+      const { data, error } = await Promise.race([
+        signInPromise,
+        timeoutPromise
+      ]) as any;
+
+      if (error) throw error;
+      if (!data.user) throw new Error('No user');
+
+      console.log('Login: Sign in successful, navigating to home');
+      router.replace('/(tabs)');
+
+    } catch (error: any) {
+      console.error('Sign-in error:', error);
+
+      let message = 'Invalid email or password';
+      
+      // Handle timeout error
+      if (error.message === 'Timeout') {
+        message = 'Connection timeout. Check internet and try again.';
+      } 
+      // Check if the error is related to email confirmation
+      else if (error.message) {
+        const errorMessage = error.message.toLowerCase();
         if (errorMessage.includes('email not confirmed') || 
             errorMessage.includes('email confirmation') ||
             errorMessage.includes('verify your email')) {
@@ -64,17 +102,14 @@ export default function LoginScreen() {
               },
             ]
           );
+          setIsLoading(false);
+          return;
         } else {
-          Alert.alert('Login Failed', result.error);
+          message = error.message;
         }
-      } else {
-        console.log('Login: Sign in successful, AuthLayout will handle navigation');
-        // Don't manually navigate - let the AuthLayout handle it
-        setShowResendButton(false);
       }
-    } catch (error: any) {
-      console.error('Login exception:', error);
-      Alert.alert('Error', error.message || 'Failed to sign in. Please try again.');
+
+      Alert.alert('Sign In Failed', message);
     } finally {
       setIsLoading(false);
     }
@@ -234,9 +269,13 @@ export default function LoginScreen() {
           )}
 
           <TouchableOpacity
-            style={[buttonStyles.primary, styles.button, isLoading && styles.buttonDisabled]}
+            style={[
+              buttonStyles.primary, 
+              styles.button, 
+              (isLoading || !email || !password) && styles.buttonDisabled
+            ]}
             onPress={handleLogin}
-            disabled={isLoading}
+            disabled={isLoading || !email || !password}
           >
             <Text style={buttonStyles.text}>
               {isLoading ? 'Signing In...' : 'Sign In'}
@@ -338,7 +377,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   resendButton: {
     flexDirection: 'row',
