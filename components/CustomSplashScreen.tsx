@@ -14,7 +14,7 @@ export function CustomSplashScreen() {
         resizeMode="contain"
       />
       <Text style={[styles.appName, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-        NATIVELY
+        HOUSEHLD
       </Text>
     </View>
   );
