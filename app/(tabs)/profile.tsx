@@ -19,6 +19,7 @@ import { useHousehold } from '@/hooks/useHousehold';
 import { colors, buttonStyles, commonStyles } from '@/styles/commonStyles';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const { user, signOut, updateUser } = useAuth();
@@ -49,16 +50,79 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await signOut();
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out? You can sign back in anytime.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+          },
         },
-      },
-    ]);
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone. All your data will be permanently removed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            // Second confirmation
+            Alert.alert(
+              'Final Confirmation',
+              'This will permanently delete your account and all associated data. Are you absolutely sure?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, Delete My Account',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      if (!user?.id) {
+                        Alert.alert('Error', 'User not found');
+                        return;
+                      }
+
+                      // Delete user from database (this will cascade delete related data)
+                      const { error: deleteError } = await supabase
+                        .from('users')
+                        .delete()
+                        .eq('id', user.id);
+
+                      if (deleteError) {
+                        console.error('Error deleting user:', deleteError);
+                        Alert.alert('Error', 'Failed to delete account. Please try again.');
+                        return;
+                      }
+
+                      // Sign out the user
+                      await signOut();
+
+                      Alert.alert(
+                        'Account Deleted',
+                        'Your account has been permanently deleted.'
+                      );
+                    } catch (error) {
+                      console.error('Error deleting account:', error);
+                      Alert.alert('Error', 'Failed to delete account. Please try again.');
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   const handleManageHousehold = () => {
@@ -176,10 +240,32 @@ export default function ProfileScreen() {
           <Text style={styles.versionText}>Version 1.0.0</Text>
         </View>
 
-        {/* SIGN OUT BUTTON */}
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+        {/* ACCOUNT ACTIONS SECTION */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          
+          {/* SIGN OUT BUTTON */}
+          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+            <IconSymbol
+              ios_icon_name="arrow.right.square"
+              android_material_icon_name="logout"
+              size={20}
+              color="#fff"
+            />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+
+          {/* DELETE ACCOUNT BUTTON */}
+          <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+            <IconSymbol
+              ios_icon_name="trash.fill"
+              android_material_icon_name="delete"
+              size={20}
+              color="#fff"
+            />
+            <Text style={styles.deleteAccountText}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* EDIT PROFILE MODAL */}
@@ -295,13 +381,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   signOutButton: {
+    backgroundColor: colors.warning || '#FF9500',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  signOutText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteAccountButton: {
     backgroundColor: colors.error,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    marginBottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
-  signOutText: {
+  deleteAccountText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
