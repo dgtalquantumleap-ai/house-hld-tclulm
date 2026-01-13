@@ -40,6 +40,7 @@ export default function CalendarScreen() {
   const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showSyncInfo, setShowSyncInfo] = useState(true);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -80,8 +81,8 @@ export default function CalendarScreen() {
       const eventData = {
         title: newEventTitle,
         description: newEventDescription || undefined,
-        date: newEventDate.toISOString().split('T')[0], // YYYY-MM-DD
-        time: newEventTime.toTimeString().substring(0, 5), // HH:MM
+        date: newEventDate.toISOString().split('T')[0],
+        time: newEventTime.toTimeString().substring(0, 5),
         repeat: 'none',
         confirmationStatus: 'pending',
       };
@@ -97,7 +98,6 @@ export default function CalendarScreen() {
         setNewEventTime(new Date());
         setShowAddModal(false);
         Alert.alert('Success', 'Event created! Other household members will be notified.');
-        // No need to manually refresh - realtime will handle it
       }
     } finally {
       setIsSubmitting(false);
@@ -130,7 +130,6 @@ export default function CalendarScreen() {
               Alert.alert('Error', error);
             } else {
               console.log('Event deleted successfully');
-              // No need to manually refresh - realtime will handle it
               Alert.alert('Success', 'Event deleted successfully');
             }
           },
@@ -152,25 +151,21 @@ export default function CalendarScreen() {
 
     try {
       if (action === 'keep_mine') {
-        // Keep current user's version
         await updateEvent(conflictEvent.id, {
           confirmationStatus: 'confirmed',
         });
         Alert.alert('Success', 'Your version has been kept');
       } else if (action === 'keep_partner') {
-        // Accept partner's version
         await updateEvent(conflictEvent.id, {
           confirmationStatus: 'confirmed',
         });
         Alert.alert('Success', 'Partner\'s version has been accepted');
       } else if (action === 'merge') {
-        // Merge both versions (create a new event with combined info)
         Alert.alert('Info', 'Merge functionality will combine both event details');
       }
       
       setShowConflictModal(false);
       setConflictEvent(null);
-      // No need to manually refresh - realtime will handle it
     } catch (error: any) {
       console.error('Error resolving conflict:', error);
       Alert.alert('Error', error.message);
@@ -186,7 +181,6 @@ export default function CalendarScreen() {
       Alert.alert('Error', error);
     } else {
       Alert.alert('Success', `Event ${status}`);
-      // No need to manually refresh - realtime will handle it
     }
   };
 
@@ -217,7 +211,6 @@ export default function CalendarScreen() {
   const canCreateEvent = user?.role === 'Adult' || user?.role === 'Parent';
   const canDeleteEvent = user?.role === 'Adult' || user?.role === 'Parent';
 
-  // Group events by date
   const groupedEvents = events.reduce((acc, event) => {
     const date = new Date(event.date).toLocaleDateString();
     if (!acc[date]) {
@@ -227,7 +220,6 @@ export default function CalendarScreen() {
     return acc;
   }, {} as Record<string, typeof events>);
 
-  // Calendar generation functions
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -245,12 +237,10 @@ export default function CalendarScreen() {
     const firstDay = getFirstDayOfMonth(currentMonth);
     const days = [];
 
-    // Add empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
       days.push(null);
     }
 
-    // Add all days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       days.push(day);
     }
@@ -286,14 +276,12 @@ export default function CalendarScreen() {
     setSelectedDate(clickedDate);
     setNewEventDate(clickedDate);
     
-    // Show events for this date or open add modal
     const dayEvents = getEventsForDate(day);
     console.log('Events for this date:', dayEvents.length);
     
     if (dayEvents.length === 0 && canCreateEvent) {
       setShowAddModal(true);
     } else {
-      // Scroll to the events section for this date
       Alert.alert(
         'Events',
         dayEvents.length > 0 
@@ -317,7 +305,6 @@ export default function CalendarScreen() {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   };
 
-  // Connection status indicator
   const getConnectionStatusColor = () => {
     switch (connectionStatus) {
       case 'connected':
@@ -336,7 +323,6 @@ export default function CalendarScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.title}>Calendar</Text>
-          {/* Connection status indicator */}
           <View style={[styles.statusDot, { backgroundColor: getConnectionStatusColor() }]} />
         </View>
         <View style={styles.headerActions}>
@@ -356,6 +342,34 @@ export default function CalendarScreen() {
           )}
         </View>
       </View>
+
+      {/* Calendar Sync Info Banner - Visual Only */}
+      {showSyncInfo && (
+        <View style={styles.syncInfoBanner}>
+          <View style={styles.syncInfoContent}>
+            <IconSymbol
+              ios_icon_name="info.circle"
+              android_material_icon_name="info"
+              size={20}
+              color={colors.primary}
+            />
+            <Text style={styles.syncInfoText}>
+              Connect your calendar to see events here
+            </Text>
+          </View>
+          <TouchableOpacity 
+            onPress={() => setShowSyncInfo(false)}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="xmark"
+              android_material_icon_name="close"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView 
         contentContainerStyle={styles.content}
@@ -387,7 +401,6 @@ export default function CalendarScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Day labels */}
           <View style={styles.weekDaysRow}>
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
               <Text key={index} style={styles.weekDayLabel}>
@@ -396,7 +409,6 @@ export default function CalendarScreen() {
             ))}
           </View>
 
-          {/* Calendar grid */}
           <View style={styles.calendarGrid}>
             {generateCalendarDays().map((day, index) => {
               const dayEvents = day ? getEventsForDate(day) : [];
@@ -443,6 +455,21 @@ export default function CalendarScreen() {
           </View>
         </View>
 
+        {/* Sync Calendar Button - Visual Only */}
+        <TouchableOpacity 
+          style={styles.syncCalendarButton}
+          onPress={() => Alert.alert('Calendar Sync', 'Calendar sync with Google/Apple will be available soon!')}
+          activeOpacity={0.7}
+        >
+          <IconSymbol
+            ios_icon_name="arrow.triangle.2.circlepath"
+            android_material_icon_name="sync"
+            size={20}
+            color={colors.primary}
+          />
+          <Text style={styles.syncCalendarButtonText}>Sync Calendar (Google / Apple)</Text>
+        </TouchableOpacity>
+
         {/* Upcoming Events List */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Upcoming Events</Text>
@@ -476,7 +503,6 @@ export default function CalendarScreen() {
                         </Text>
                       )}
                       
-                      {/* Confirmation Actions */}
                       {event.confirmationStatus === 'pending' && event.createdByUserId !== user?.id && (
                         <View style={styles.confirmationActions}>
                           <TouchableOpacity
@@ -496,7 +522,6 @@ export default function CalendarScreen() {
                         </View>
                       )}
 
-                      {/* Delete Button */}
                       {canDeleteEvent && (
                         <TouchableOpacity
                           style={styles.deleteButton}
@@ -522,15 +547,28 @@ export default function CalendarScreen() {
             ))
           ) : (
             <View style={styles.emptyState}>
-              <Ionicons name="calendar-outline" size={64} color="#D1D5DB" />
+              <IconSymbol
+                ios_icon_name="calendar"
+                android_material_icon_name="event"
+                size={64}
+                color={colors.textSecondary}
+              />
               <Text style={styles.emptyText}>No upcoming events</Text>
-              <Text style={styles.emptySubtext}>Tap + to schedule an event</Text>
+              <Text style={styles.emptySubtext}>Tap + to add or sync your calendar</Text>
+              {canCreateEvent && (
+                <TouchableOpacity 
+                  style={styles.emptyActionLink}
+                  onPress={() => setShowAddModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.emptyActionText}>Add Event</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Add Event Modal - IMPROVED WITH BACKDROP DISMISS */}
       <Modal
         visible={showAddModal}
         animationType="slide"
@@ -635,6 +673,7 @@ export default function CalendarScreen() {
                     style={[buttonStyles.outline, styles.modalButton]}
                     onPress={() => setShowAddModal(false)}
                     disabled={isSubmitting}
+                    activeOpacity={0.7}
                   >
                     <Text style={buttonStyles.outlineText}>Cancel</Text>
                   </TouchableOpacity>
@@ -642,6 +681,7 @@ export default function CalendarScreen() {
                     style={[buttonStyles.primary, styles.modalButton]}
                     onPress={handleAddEvent}
                     disabled={isSubmitting}
+                    activeOpacity={0.7}
                   >
                     {isSubmitting ? (
                       <ActivityIndicator color={colors.card} />
@@ -656,7 +696,6 @@ export default function CalendarScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* Conflict Resolution Modal */}
       <Modal
         visible={showConflictModal}
         animationType="slide"
@@ -721,7 +760,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 60,
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -751,6 +790,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  syncInfoBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F0F4FF',
+    marginHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  syncInfoContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  syncInfoText: {
+    fontSize: 13,
+    color: colors.primary,
+    flex: 1,
+  },
   content: {
     paddingHorizontal: 16,
     paddingBottom: 100,
@@ -759,7 +820,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 16,
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
     elevation: 2,
   },
@@ -832,6 +893,26 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
+  },
+  syncCalendarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.card,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
+  },
+  syncCalendarButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
   },
   section: {
     marginBottom: 24,
@@ -954,18 +1035,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
-    marginTop: 60,
+    marginTop: 40,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
   },
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.textSecondary,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     marginTop: 8,
+    opacity: 0.7,
+  },
+  emptyActionLink: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  emptyActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.card,
   },
   modalOverlay: {
     flex: 1,

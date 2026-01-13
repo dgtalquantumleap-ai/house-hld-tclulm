@@ -76,7 +76,6 @@ export default function ProfileScreen() {
           text: 'Delete Account',
           style: 'destructive',
           onPress: async () => {
-            // Second confirmation
             Alert.alert(
               'Final Confirmation',
               'This will permanently delete your account and all associated data. Are you absolutely sure?',
@@ -92,7 +91,6 @@ export default function ProfileScreen() {
                         return;
                       }
 
-                      // Delete user from database (this will cascade delete related data)
                       const { error: deleteError } = await supabase
                         .from('users')
                         .delete()
@@ -104,7 +102,6 @@ export default function ProfileScreen() {
                         return;
                       }
 
-                      // Sign out the user
                       await signOut();
 
                       Alert.alert(
@@ -138,7 +135,6 @@ export default function ProfileScreen() {
           Platform.OS !== 'ios' && styles.contentContainerWithTabBar,
         ]}
       >
-        {/* USER INFO CARD */}
         <View style={styles.profileHeader}>
           <IconSymbol
             ios_icon_name="person.circle.fill"
@@ -150,7 +146,6 @@ export default function ProfileScreen() {
           <Text style={styles.email}>{user?.email}</Text>
         </View>
 
-        {/* EDIT PROFILE SECTION */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Edit Profile</Text>
           <TouchableOpacity
@@ -159,12 +154,12 @@ export default function ProfileScreen() {
               setEditName(user?.name || '');
               setEditModalVisible(true);
             }}
+            activeOpacity={0.7}
           >
             <Text style={buttonStyles.primaryText}>Edit Profile</Text>
           </TouchableOpacity>
         </View>
 
-        {/* HOUSEHOLD SECTION */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Household</Text>
           {household ? (
@@ -190,12 +185,14 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={[buttonStyles.secondary, styles.button]}
                 onPress={handleCopyInviteCode}
+                activeOpacity={0.7}
               >
                 <Text style={buttonStyles.secondaryText}>Copy Invite Code</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[buttonStyles.primary, styles.button]}
                 onPress={handleManageHousehold}
+                activeOpacity={0.7}
               >
                 <Text style={buttonStyles.primaryText}>Manage Household</Text>
               </TouchableOpacity>
@@ -204,18 +201,77 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={[buttonStyles.primary, styles.button]}
               onPress={() => router.push('/household-setup')}
+              activeOpacity={0.7}
             >
               <Text style={buttonStyles.primaryText}>Join Household</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* LEGAL SECTION */}
+        {/* AI Assist Settings - Visual Only */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>AI Assist (Coming Soon)</Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <IconSymbol
+                ios_icon_name="sparkles"
+                android_material_icon_name="auto-awesome"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.settingText}>Enable Task Suggestions</Text>
+            </View>
+            <View style={[styles.toggle, styles.toggleDisabled]}>
+              <Text style={styles.toggleLabel}>Soon</Text>
+            </View>
+          </View>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <IconSymbol
+                ios_icon_name="bell.badge"
+                android_material_icon_name="notifications-active"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.settingText}>Enable Smart Reminders</Text>
+            </View>
+            <View style={[styles.toggle, styles.toggleDisabled]}>
+              <Text style={styles.toggleLabel}>Soon</Text>
+            </View>
+          </View>
+          <Text style={styles.settingDescription}>
+            AI features will help suggest tasks, optimize schedules, and send smart reminders based on your household patterns.
+          </Text>
+        </View>
+
+        {/* Calendar Sync Settings - Visual Only */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Calendar Sync (Coming Soon)</Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <IconSymbol
+                ios_icon_name="calendar.badge.clock"
+                android_material_icon_name="event"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.settingText}>Enable Calendar Sync</Text>
+            </View>
+            <View style={[styles.toggle, styles.toggleDisabled]}>
+              <Text style={styles.toggleLabel}>Soon</Text>
+            </View>
+          </View>
+          <Text style={styles.settingDescription}>
+            Connect your Google or Apple calendar to automatically sync events with your household.
+          </Text>
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Legal</Text>
           <TouchableOpacity
             style={styles.linkButton}
             onPress={() => Linking.openURL('https://househld.app/privacy')}
+            activeOpacity={0.7}
           >
             <Text style={styles.linkText}>Privacy Policy</Text>
             <IconSymbol
@@ -228,6 +284,7 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.linkButton}
             onPress={() => Linking.openURL('https://househld.app/terms')}
+            activeOpacity={0.7}
           >
             <Text style={styles.linkText}>Terms of Service</Text>
             <IconSymbol
@@ -237,15 +294,17 @@ export default function ProfileScreen() {
               color={colors.textSecondary}
             />
           </TouchableOpacity>
-          <Text style={styles.versionText}>Version 1.0.0</Text>
+          <Text style={styles.versionText}>Version 1.1.1</Text>
         </View>
 
-        {/* ACCOUNT ACTIONS SECTION */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
           
-          {/* SIGN OUT BUTTON */}
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+          <TouchableOpacity 
+            style={styles.signOutButton} 
+            onPress={handleSignOut}
+            activeOpacity={0.7}
+          >
             <IconSymbol
               ios_icon_name="arrow.right.square"
               android_material_icon_name="logout"
@@ -255,8 +314,11 @@ export default function ProfileScreen() {
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
 
-          {/* DELETE ACCOUNT BUTTON */}
-          <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+          <TouchableOpacity 
+            style={styles.deleteAccountButton} 
+            onPress={handleDeleteAccount}
+            activeOpacity={0.7}
+          >
             <IconSymbol
               ios_icon_name="trash.fill"
               android_material_icon_name="delete"
@@ -268,7 +330,6 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      {/* EDIT PROFILE MODAL */}
       <Modal
         visible={editModalVisible}
         animationType="slide"
@@ -289,12 +350,14 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={[buttonStyles.secondary, styles.modalButton]}
                 onPress={() => setEditModalVisible(false)}
+                activeOpacity={0.7}
               >
                 <Text style={buttonStyles.secondaryText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[buttonStyles.primary, styles.modalButton]}
                 onPress={handleSaveProfile}
+                activeOpacity={0.7}
               >
                 <Text style={buttonStyles.primaryText}>Save</Text>
               </TouchableOpacity>
@@ -361,6 +424,45 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 8,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  settingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  settingText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  toggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  toggleDisabled: {
+    backgroundColor: colors.textSecondary,
+    opacity: 0.5,
+  },
+  toggleLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.card,
+  },
+  settingDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 12,
+    lineHeight: 18,
   },
   linkButton: {
     flexDirection: 'row',

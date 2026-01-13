@@ -110,6 +110,7 @@ export default function ShoppingScreen() {
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => setShowAddModal(true)}
+          activeOpacity={0.7}
         >
           <IconSymbol
             ios_icon_name="plus"
@@ -135,6 +136,7 @@ export default function ShoppingScreen() {
                 style={styles.itemCard}
                 onPress={() => handleTogglePurchased(item.id, item.purchased)}
                 onLongPress={() => handleDeleteItem(item.id)}
+                activeOpacity={0.7}
               >
                 <View style={styles.checkbox}>
                   <IconSymbol
@@ -157,9 +159,21 @@ export default function ShoppingScreen() {
             ))
           ) : (
             <View style={styles.emptyState}>
-              <Ionicons name="cart-outline" size={64} color="#D1D5DB" />
+              <IconSymbol
+                ios_icon_name="cart"
+                android_material_icon_name="shopping-cart"
+                size={64}
+                color={colors.textSecondary}
+              />
               <Text style={styles.emptyText}>No items needed</Text>
               <Text style={styles.emptySubtext}>Tap + to add shopping items</Text>
+              <TouchableOpacity 
+                style={styles.emptyActionLink}
+                onPress={() => setShowAddModal(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.emptyActionText}>Add Item</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -172,6 +186,7 @@ export default function ShoppingScreen() {
                 key={item.id}
                 style={[styles.itemCard, styles.purchasedCard]}
                 onPress={() => handleTogglePurchased(item.id, item.purchased)}
+                activeOpacity={0.7}
               >
                 <View style={styles.checkbox}>
                   <IconSymbol
@@ -248,6 +263,7 @@ export default function ShoppingScreen() {
                   style={styles.cancel}
                   onPress={() => setShowAddModal(false)}
                   disabled={isSubmitting}
+                  activeOpacity={0.7}
                 >
                   <Text style={styles.cancelText}>Cancel</Text>
                 </TouchableOpacity>
@@ -255,6 +271,7 @@ export default function ShoppingScreen() {
                   style={styles.add}
                   onPress={handleAddItem}
                   disabled={isSubmitting}
+                  activeOpacity={0.7}
                 >
                   {isSubmitting ? (
                     <ActivityIndicator color="#FFF" />
@@ -351,18 +368,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
-    marginTop: 60,
+    marginTop: 40,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
   },
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.textSecondary,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     marginTop: 8,
+    opacity: 0.7,
+  },
+  emptyActionLink: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  emptyActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.card,
   },
   overlay: {
     flex: 1,

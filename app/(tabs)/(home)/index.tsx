@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +30,7 @@ export default function HomeScreen() {
   const { notifications, unreadCount, markAsRead } = useNotifications();
 
   const [refreshing, setRefreshing] = React.useState(false);
+  const [showAISuggestion, setShowAISuggestion] = React.useState(true);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -69,8 +71,14 @@ export default function HomeScreen() {
 
   const handleQuickConfirm = async (notificationId: string, action: 'acknowledged' | 'done') => {
     await markAsRead(notificationId);
-    // Additional logic for specific actions can be added here
   };
+
+  // Get next event for calendar strip
+  const nextEvent = upcomingEvents[0];
+  const nextEventTime = nextEvent ? new Date(nextEvent.date) : null;
+  const hoursUntilEvent = nextEventTime 
+    ? Math.round((nextEventTime.getTime() - new Date().getTime()) / (1000 * 60 * 60))
+    : null;
 
   if (isLoading && !refreshing) {
     return (
@@ -97,6 +105,7 @@ export default function HomeScreen() {
           <TouchableOpacity 
             style={styles.notificationBadge}
             onPress={() => router.push('/modal')}
+            activeOpacity={0.7}
           >
             <IconSymbol
               ios_icon_name="bell.fill"
@@ -111,9 +120,44 @@ export default function HomeScreen() {
         )}
       </View>
 
+      {/* Calendar Strip - Visual Only */}
+      <View style={styles.calendarStrip}>
+        <View style={styles.calendarStripLeft}>
+          <IconSymbol
+            ios_icon_name="calendar"
+            android_material_icon_name="event"
+            size={24}
+            color={colors.primary}
+          />
+          <View style={styles.calendarStripText}>
+            <Text style={styles.calendarStripDate}>
+              {today.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </Text>
+            {nextEvent ? (
+              <Text style={styles.calendarStripNext}>
+                Next: {nextEvent.title} {hoursUntilEvent !== null && hoursUntilEvent < 24 ? `in ${hoursUntilEvent}h` : ''}
+              </Text>
+            ) : (
+              <Text style={styles.calendarStripNext}>No upcoming events</Text>
+            )}
+          </View>
+        </View>
+        <TouchableOpacity 
+          style={styles.syncButton}
+          onPress={() => router.push('/(tabs)/calendar')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.syncButtonText}>View Calendar</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Quick Stats */}
       <View style={styles.statsRow}>
-        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/tasks')}>
+        <TouchableOpacity 
+          style={styles.statCard} 
+          onPress={() => router.push('/(tabs)/tasks')}
+          activeOpacity={0.7}
+        >
           <IconSymbol
             ios_icon_name="checkmark.circle.fill"
             android_material_icon_name="check-circle"
@@ -124,7 +168,11 @@ export default function HomeScreen() {
           <Text style={styles.statLabel}>Tasks Today</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/calendar')}>
+        <TouchableOpacity 
+          style={styles.statCard} 
+          onPress={() => router.push('/(tabs)/calendar')}
+          activeOpacity={0.7}
+        >
           <IconSymbol
             ios_icon_name="calendar.circle.fill"
             android_material_icon_name="event"
@@ -135,7 +183,11 @@ export default function HomeScreen() {
           <Text style={styles.statLabel}>Events</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.statCard} onPress={() => router.push('/(tabs)/shopping')}>
+        <TouchableOpacity 
+          style={styles.statCard} 
+          onPress={() => router.push('/(tabs)/shopping')}
+          activeOpacity={0.7}
+        >
           <IconSymbol
             ios_icon_name="cart.fill"
             android_material_icon_name="shopping-cart"
@@ -147,12 +199,50 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* AI Smart Suggestions - Visual Only */}
+      {showAISuggestion && (
+        <View style={styles.aiSuggestionCard}>
+          <View style={styles.aiSuggestionHeader}>
+            <View style={styles.aiSuggestionTitle}>
+              <IconSymbol
+                ios_icon_name="sparkles"
+                android_material_icon_name="auto-awesome"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={styles.aiSuggestionTitleText}>Smart Suggestion</Text>
+            </View>
+            <TouchableOpacity 
+              onPress={() => setShowAISuggestion(false)}
+              activeOpacity={0.7}
+            >
+              <IconSymbol
+                ios_icon_name="xmark"
+                android_material_icon_name="close"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.aiSuggestionText}>
+            Looks like you usually shop on Fridays. Want to add shopping to your calendar?
+          </Text>
+          <TouchableOpacity 
+            style={styles.aiSuggestionButton}
+            onPress={() => router.push('/(tabs)/calendar')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.aiSuggestionButtonText}>Add Suggested Event</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Quick Notifications */}
       {recentNotifications.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Quick Confirm</Text>
-            <TouchableOpacity onPress={() => router.push('/modal')}>
+            <TouchableOpacity onPress={() => router.push('/modal')} activeOpacity={0.7}>
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -167,12 +257,14 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   style={[styles.actionButton, styles.acknowledgeButton]}
                   onPress={() => handleQuickConfirm(notification.id, 'acknowledged')}
+                  activeOpacity={0.7}
                 >
                   <Text style={styles.actionButtonText}>✓</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.doneButton]}
                   onPress={() => handleQuickConfirm(notification.id, 'done')}
+                  activeOpacity={0.7}
                 >
                   <Text style={styles.actionButtonText}>Done</Text>
                 </TouchableOpacity>
@@ -190,7 +282,12 @@ export default function HomeScreen() {
           </View>
 
           {todaysMeals.map((meal) => (
-            <View key={meal.id} style={styles.card}>
+            <TouchableOpacity 
+              key={meal.id} 
+              style={styles.card}
+              onPress={() => router.push('/(tabs)/meals')}
+              activeOpacity={0.7}
+            >
               <View style={styles.cardIcon}>
                 <IconSymbol
                   ios_icon_name="fork.knife"
@@ -205,7 +302,7 @@ export default function HomeScreen() {
                   {meal.mealTime || 'No time set'} {meal.assignedToUserId ? '• Assigned' : ''}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       )}
@@ -214,7 +311,7 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Today&apos;s Tasks</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/tasks')}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/tasks')} activeOpacity={0.7}>
             <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
@@ -225,6 +322,7 @@ export default function HomeScreen() {
               key={task.id} 
               style={styles.card}
               onPress={() => router.push('/(tabs)/tasks')}
+              activeOpacity={0.7}
             >
               <View style={styles.cardIcon}>
                 <IconSymbol
@@ -244,7 +342,14 @@ export default function HomeScreen() {
           ))
         ) : (
           <View style={styles.emptyState}>
+            <IconSymbol
+              ios_icon_name="checkmark.circle"
+              android_material_icon_name="check-circle"
+              size={48}
+              color={colors.textSecondary}
+            />
             <Text style={styles.emptyText}>No tasks for today! 🎉</Text>
+            <Text style={styles.emptySubtext}>You&apos;re all caught up</Text>
           </View>
         )}
       </View>
@@ -253,7 +358,7 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Upcoming Events</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/calendar')}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/calendar')} activeOpacity={0.7}>
             <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
@@ -264,6 +369,7 @@ export default function HomeScreen() {
               key={event.id} 
               style={styles.card}
               onPress={() => router.push('/(tabs)/calendar')}
+              activeOpacity={0.7}
             >
               <View style={styles.cardIcon}>
                 <IconSymbol
@@ -292,7 +398,21 @@ export default function HomeScreen() {
           ))
         ) : (
           <View style={styles.emptyState}>
+            <IconSymbol
+              ios_icon_name="calendar"
+              android_material_icon_name="event"
+              size={48}
+              color={colors.textSecondary}
+            />
             <Text style={styles.emptyText}>No upcoming events</Text>
+            <Text style={styles.emptySubtext}>Tap + to add or sync your calendar</Text>
+            <TouchableOpacity 
+              style={styles.emptyActionLink}
+              onPress={() => router.push('/(tabs)/calendar')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.emptyActionText}>Add Event</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -301,7 +421,7 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Shopping List</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/shopping')}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/shopping')} activeOpacity={0.7}>
             <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
@@ -312,6 +432,7 @@ export default function HomeScreen() {
               key={item.id} 
               style={styles.card}
               onPress={() => router.push('/(tabs)/shopping')}
+              activeOpacity={0.7}
             >
               <View style={styles.cardIcon}>
                 <IconSymbol
@@ -331,7 +452,21 @@ export default function HomeScreen() {
           ))
         ) : (
           <View style={styles.emptyState}>
+            <IconSymbol
+              ios_icon_name="cart"
+              android_material_icon_name="shopping-cart"
+              size={48}
+              color={colors.textSecondary}
+            />
             <Text style={styles.emptyText}>Shopping list is empty</Text>
+            <Text style={styles.emptySubtext}>Add items you need to buy</Text>
+            <TouchableOpacity 
+              style={styles.emptyActionLink}
+              onPress={() => router.push('/(tabs)/shopping')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.emptyActionText}>Add Item</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -353,7 +488,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   greeting: {
     fontSize: 28,
@@ -388,10 +523,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  calendarStrip: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
+  },
+  calendarStripLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  calendarStripText: {
+    flex: 1,
+  },
+  calendarStripDate: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  calendarStripNext: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  syncButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  syncButtonText: {
+    color: colors.card,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   statsRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 32,
+    marginBottom: 20,
   },
   statCard: {
     flex: 1,
@@ -413,6 +589,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  aiSuggestionCard: {
+    backgroundColor: '#F0F4FF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  aiSuggestionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiSuggestionTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  aiSuggestionTitleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  aiSuggestionText: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  aiSuggestionButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  aiSuggestionButtonText: {
+    color: colors.card,
+    fontSize: 13,
+    fontWeight: '700',
   },
   section: {
     marginBottom: 32,
@@ -482,7 +700,27 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
+    fontWeight: '600',
     color: colors.textSecondary,
+    marginTop: 12,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
+    opacity: 0.7,
+  },
+  emptyActionLink: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  emptyActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.card,
   },
   notificationCard: {
     flexDirection: 'row',

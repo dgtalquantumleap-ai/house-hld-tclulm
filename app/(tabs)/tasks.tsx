@@ -111,7 +111,6 @@ export default function TasksScreen() {
     );
   };
 
-  // Safely filter tasks with null checks
   const pendingTasks = (tasks || []).filter(t => t && t.status !== 'completed');
   const completedTasks = (tasks || []).filter(t => t && t.status === 'completed');
 
@@ -125,6 +124,7 @@ export default function TasksScreen() {
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => setShowAddModal(true)}
+            activeOpacity={0.7}
           >
             <IconSymbol
               ios_icon_name="plus"
@@ -134,6 +134,19 @@ export default function TasksScreen() {
             />
           </TouchableOpacity>
         )}
+      </View>
+
+      {/* AI Suggestion Banner - Visual Only */}
+      <View style={styles.aiSuggestionBanner}>
+        <IconSymbol
+          ios_icon_name="sparkles"
+          android_material_icon_name="auto-awesome"
+          size={16}
+          color={colors.primary}
+        />
+        <Text style={styles.aiSuggestionText}>
+          Try: &quot;Clean kitchen tomorrow at 10am&quot;
+        </Text>
       </View>
 
       <ScrollView 
@@ -151,6 +164,7 @@ export default function TasksScreen() {
                 style={styles.taskCard}
                 onPress={() => toggleTaskStatus(task.id, task.status)}
                 onLongPress={() => canCreateTask && handleDeleteTask(task.id)}
+                activeOpacity={0.7}
               >
                 <View style={styles.checkbox}>
                   <IconSymbol
@@ -171,9 +185,23 @@ export default function TasksScreen() {
             ))
           ) : (
             <View style={styles.emptyState}>
-              <Ionicons name="checkmark-circle-outline" size={64} color="#D1D5DB" />
+              <IconSymbol
+                ios_icon_name="checkmark.circle"
+                android_material_icon_name="check-circle"
+                size={64}
+                color={colors.textSecondary}
+              />
               <Text style={styles.emptyText}>No pending tasks</Text>
               <Text style={styles.emptySubtext}>Tap + to add your first task</Text>
+              {canCreateTask && (
+                <TouchableOpacity 
+                  style={styles.emptyActionLink}
+                  onPress={() => setShowAddModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.emptyActionText}>Add Task</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -186,6 +214,7 @@ export default function TasksScreen() {
                 key={task.id}
                 style={[styles.taskCard, styles.completedCard]}
                 onPress={() => toggleTaskStatus(task.id, task.status)}
+                activeOpacity={0.7}
               >
                 <View style={styles.checkbox}>
                   <IconSymbol
@@ -259,6 +288,7 @@ export default function TasksScreen() {
                   style={styles.cancelButton}
                   onPress={() => setShowAddModal(false)}
                   disabled={isSubmitting}
+                  activeOpacity={0.7}
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
@@ -267,6 +297,7 @@ export default function TasksScreen() {
                   style={styles.addButtonModal}
                   onPress={addTask}
                   disabled={isSubmitting}
+                  activeOpacity={0.7}
                 >
                   {isSubmitting ? (
                     <ActivityIndicator color="#FFFFFF" />
@@ -294,7 +325,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? 60 : 60,
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   title: {
     fontSize: 28,
@@ -308,6 +339,22 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  aiSuggestionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F0F4FF',
+    marginHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  aiSuggestionText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontStyle: 'italic',
   },
   content: {
     paddingHorizontal: 16,
@@ -364,18 +411,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
-    marginTop: 60,
+    marginTop: 40,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
   },
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.textSecondary,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     marginTop: 8,
+    opacity: 0.7,
+  },
+  emptyActionLink: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  emptyActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.card,
   },
   centeredModalOverlay: {
     flex: 1,

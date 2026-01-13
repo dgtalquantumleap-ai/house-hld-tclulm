@@ -1,8 +1,7 @@
-
 {
   "expo": {
-    "name": "Househld",
-    "slug": "househld",
+    "name": "House HLD",
+    "slug": "House HLD",
     "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/images/0c365fa9-e8bb-4410-870f-b3f5a99fd37b.png",
@@ -19,7 +18,10 @@
       "buildNumber": "13",
       "icon": "./assets/images/0c365fa9-e8bb-4410-870f-b3f5a99fd37b.png",
       "infoPlist": {
-        "UIBackgroundModes": ["fetch", "remote-notification"],
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -53,5 +55,6 @@
       "supabaseUrl": "https://tkavowbmakdnqekweoro.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrYXZvd2JtYWtkbnFla3dlb3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NTMxOTgsImV4cCI6MjA4MDUyOTE5OH0.3tzrUDtmiMRAnyrXUDDnaLo0bUFVQqWJZy8KRRyNy1M"
     }
-  }
+  },
+  "scheme": "House HLD"
 }
