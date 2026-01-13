@@ -3,9 +3,14 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform, 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { IconSymbol } from '@/components/IconSymbol';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
+import { colors } from '@/styles/commonStyles';
 
 export default function MealsScreen() {
   const { user } = useAuth();
+  const { settings, isLoading: settingsLoading } = useUserSettings();
   const [meals, setMeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showInput, setShowInput] = useState(false);
@@ -13,15 +18,20 @@ export default function MealsScreen() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedType, setSelectedType] = useState<string>('');
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const inputRef = useRef<TextInput>(null);
+
+  // Check if user is premium
+  const isPremium = settings?.isPremium || false;
 
   useEffect(() => { 
     console.log('MealsScreen iOS: Component mounted');
     console.log('MealsScreen iOS: User ID:', user?.id);
     console.log('MealsScreen iOS: Household ID:', user?.householdId);
-    setDebugInfo(`User: ${user?.id?.substring(0, 8)}... | HH: ${user?.householdId?.substring(0, 8)}...`);
+    console.log('MealsScreen iOS: Is Premium:', isPremium);
+    setDebugInfo(`User: ${user?.id?.substring(0, 8)}... | HH: ${user?.householdId?.substring(0, 8)}... | ${isPremium ? 'Premium ✨' : 'Free'}`);
     load(); 
-  }, [user?.householdId]);
+  }, [user?.householdId, isPremium]);
 
   async function load() {
     try {
@@ -83,10 +93,10 @@ export default function MealsScreen() {
       
       if (data && data.length > 0) {
         console.log('MealsScreen iOS: First meal:', JSON.stringify(data[0]));
-        setDebugInfo(`Loaded ${data.length} meals successfully`);
+        setDebugInfo(`Loaded ${data.length} meals | ${isPremium ? 'Premium ✨' : 'Free'}`);
       } else {
         console.log('MealsScreen iOS: No meals found for this week');
-        setDebugInfo(`No meals for ${startStr} to ${endStr}`);
+        setDebugInfo(`No meals for ${startStr} to ${endStr} | ${isPremium ? 'Premium ✨' : 'Free'}`);
       }
       
       setMeals(data || []);
@@ -242,6 +252,19 @@ export default function MealsScreen() {
     );
   }
 
+  // Handle AI meal suggestion button
+  const handleAIMealSuggestion = () => {
+    if (!isPremium) {
+      console.log('[MealsScreen iOS] User is not premium, showing upgrade prompt');
+      setShowUpgradePrompt(true);
+      return;
+    }
+
+    // TODO: Backend Integration - POST /api/ai/meal-suggestion
+    // This will be implemented when the backend AI feature is ready
+    Alert.alert('AI Feature', 'AI meal suggestions coming soon for premium users!');
+  };
+
   const start = getStart(new Date());
   const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const types = ['breakfast','lunch','dinner'];
@@ -261,7 +284,39 @@ export default function MealsScreen() {
     <View style={s.c}>
       <Text style={s.t}>Weekly Meals</Text>
       <Text style={s.subtitle}>Tap a card to add or change a meal</Text>
+      
+      {/* AI Meal Suggestion Button - With Premium Gating */}
+      <View style={s.aiButtonContainer}>
+        <TouchableOpacity 
+          style={[s.aiButton, !isPremium && s.aiButtonLocked]}
+          onPress={handleAIMealSuggestion}
+          disabled={settingsLoading}
+          activeOpacity={0.7}
+        >
+          {!isPremium && (
+            <IconSymbol
+              ios_icon_name="lock.fill"
+              android_material_icon_name="lock"
+              size={14}
+              color={colors.card}
+              style={{ marginRight: 6 }}
+            />
+          )}
+          <IconSymbol
+            ios_icon_name="sparkles"
+            android_material_icon_name="auto-awesome"
+            size={16}
+            color={colors.card}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={s.aiButtonText}>
+            {isPremium ? 'AI Meal Suggestion' : 'Upgrade to Unlock AI'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={s.debugInfo}>{debugInfo}</Text>
+
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={true}
@@ -308,6 +363,13 @@ export default function MealsScreen() {
           })}
         </View>
       </ScrollView>
+
+      {/* Upgrade Prompt Modal */}
+      <UpgradePrompt
+        visible={showUpgradePrompt}
+        onClose={() => setShowUpgradePrompt(false)}
+        feature="AI Meal Suggestions"
+      />
     </View>
   );
 }
@@ -315,7 +377,30 @@ export default function MealsScreen() {
 const s = StyleSheet.create({
   c: { flex: 1, backgroundColor: '#fff' },
   t: { fontSize: 24, fontWeight: 'bold', padding: 16, paddingBottom: 4 },
-  subtitle: { fontSize: 14, color: '#666', paddingHorizontal: 16, paddingBottom: 4 },
+  subtitle: { fontSize: 14, color: '#666', paddingHorizontal: 16, paddingBottom: 8 },
+  aiButtonContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  aiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    boxShadow: '0px 2px 6px rgba(99, 102, 241, 0.3)',
+    elevation: 3,
+  },
+  aiButtonLocked: {
+    backgroundColor: colors.textSecondary,
+  },
+  aiButtonText: {
+    color: colors.card,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   debugInfo: { 
     fontSize: 11, 
     color: '#999', 
