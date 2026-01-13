@@ -209,6 +209,7 @@ export interface UserSettings {
   pollNotifications: boolean;
   mealNotifications: boolean;
   showPersonalCalendarEvents: boolean;
+  isPremium: boolean; // Added for AI feature gating
   createdAt: string;
   updatedAt: string;
 }

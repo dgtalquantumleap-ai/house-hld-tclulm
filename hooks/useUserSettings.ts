@@ -40,6 +40,7 @@ export function useUserSettings() {
           pollNotifications: data.poll_notifications,
           mealNotifications: data.meal_notifications,
           showPersonalCalendarEvents: data.show_personal_calendar_events,
+          isPremium: data.is_premium || false, // Added for AI feature gating
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         });
@@ -70,6 +71,7 @@ export function useUserSettings() {
           poll_notifications: true,
           meal_notifications: true,
           show_personal_calendar_events: true,
+          is_premium: false, // Default to free tier
         })
         .select()
         .single();
@@ -88,6 +90,7 @@ export function useUserSettings() {
           pollNotifications: data.poll_notifications,
           mealNotifications: data.meal_notifications,
           showPersonalCalendarEvents: data.show_personal_calendar_events,
+          isPremium: data.is_premium || false,
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         });
@@ -119,6 +122,8 @@ export function useUserSettings() {
         dbUpdates.meal_notifications = updates.mealNotifications;
       if (updates.showPersonalCalendarEvents !== undefined) 
         dbUpdates.show_personal_calendar_events = updates.showPersonalCalendarEvents;
+      if (updates.isPremium !== undefined) 
+        dbUpdates.is_premium = updates.isPremium;
 
       const { data, error } = await supabase
         .from('user_settings')
@@ -141,6 +146,7 @@ export function useUserSettings() {
           pollNotifications: data.poll_notifications,
           mealNotifications: data.meal_notifications,
           showPersonalCalendarEvents: data.show_personal_calendar_events,
+          isPremium: data.is_premium || false,
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         });

@@ -8,7 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  Animated,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,8 +17,11 @@ import { useEvents } from '@/hooks/useEvents';
 import { useShoppingList } from '@/hooks/useShoppingList';
 import { useMeals } from '@/hooks/useMeals';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useUserSettings } from '@/hooks/useUserSettings';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
+import { getMealSuggestion } from '@/utils/aiService';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -28,9 +31,13 @@ export default function HomeScreen() {
   const { items, isLoading: itemsLoading, refreshItems } = useShoppingList();
   const { meals, isLoading: mealsLoading, refreshMeals } = useMeals();
   const { notifications, unreadCount, markAsRead } = useNotifications();
+  const { settings, isLoading: settingsLoading } = useUserSettings();
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [showAISuggestion, setShowAISuggestion] = React.useState(true);
+  const [showUpgradePrompt, setShowUpgradePrompt] = React.useState(false);
+  const [aiSuggestionLoading, setAiSuggestionLoading] = React.useState(false);
+  const [aiMealSuggestion, setAiMealSuggestion] = React.useState<string | null>(null);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -67,7 +74,7 @@ export default function HomeScreen() {
     .filter(n => !n.read)
     .slice(0, 3);
 
-  const isLoading = tasksLoading || eventsLoading || itemsLoading || mealsLoading;
+  const isLoading = tasksLoading || eventsLoading || itemsLoading || mealsLoading || settingsLoading;
 
   const handleQuickConfirm = async (notificationId: string, action: 'acknowledged' | 'done') => {
     await markAsRead(notificationId);
@@ -79,6 +86,63 @@ export default function HomeScreen() {
   const hoursUntilEvent = nextEventTime 
     ? Math.round((nextEventTime.getTime() - new Date().getTime()) / (1000 * 60 * 60))
     : null;
+
+  // Check if user is premium
+  const isPremium = settings?.isPremium || false;
+
+  // Handle AI meal suggestion
+  const handleAIMealSuggestion = async () => {
+    if (!user?.householdId) {
+      Alert.alert('Error', 'You must be part of a household to use AI features');
+      return;
+    }
+
+    // Check if user is premium
+    if (!isPremium) {
+      console.log('[HomeScreen] User is not premium, showing upgrade prompt');
+      setShowUpgradePrompt(true);
+      return;
+    }
+
+    setAiSuggestionLoading(true);
+    try {
+      console.log('[HomeScreen] Requesting AI meal suggestion');
+      const response = await getMealSuggestion(user.householdId);
+
+      if (response.error === 'premium_required') {
+        console.log('[HomeScreen] Backend returned 403 - premium required');
+        setShowUpgradePrompt(true);
+        return;
+      }
+
+      if (response.success && response.result.meal) {
+        console.log('[HomeScreen] AI meal suggestion received:', response.result.meal);
+        setAiMealSuggestion(response.result.meal);
+        
+        // Show nutrition info if available
+        if (response.result.calories) {
+          Alert.alert(
+            'AI Meal Suggestion',
+            `${response.result.meal}\n\nCalories: ${response.result.calories}${
+              response.result.protein ? `\nProtein: ${response.result.protein}g` : ''
+            }${response.result.carbs ? `\nCarbs: ${response.result.carbs}g` : ''}${
+              response.result.fat ? `\nFat: ${response.result.fat}g` : ''
+            }`,
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert('AI Meal Suggestion', response.result.meal, [{ text: 'OK' }]);
+        }
+      } else {
+        Alert.alert('Error', 'Failed to get meal suggestion. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('[HomeScreen] AI meal suggestion error:', error);
+      Alert.alert('Error', error.message || 'Failed to get meal suggestion');
+    } finally {
+      setAiSuggestionLoading(false);
+    }
+  };
 
   if (isLoading && !refreshing) {
     return (
@@ -143,11 +207,28 @@ export default function HomeScreen() {
           </View>
         </View>
         <TouchableOpacity 
-          style={styles.syncButton}
-          onPress={() => router.push('/(tabs)/calendar')}
+          style={[styles.syncButton, !isPremium && styles.syncButtonDisabled]}
+          onPress={() => {
+            if (!isPremium) {
+              setShowUpgradePrompt(true);
+            } else {
+              router.push('/(tabs)/calendar');
+            }
+          }}
           activeOpacity={0.7}
         >
-          <Text style={styles.syncButtonText}>View Calendar</Text>
+          {!isPremium && (
+            <IconSymbol
+              ios_icon_name="lock.fill"
+              android_material_icon_name="lock"
+              size={12}
+              color={colors.card}
+              style={{ marginRight: 4 }}
+            />
+          )}
+          <Text style={styles.syncButtonText}>
+            {isPremium ? 'View Calendar' : 'Sync Calendar'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -199,18 +280,31 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* AI Smart Suggestions - Visual Only */}
+      {/* AI Smart Suggestions - With Premium Gating */}
       {showAISuggestion && (
-        <View style={styles.aiSuggestionCard}>
+        <View style={[styles.aiSuggestionCard, !isPremium && styles.aiSuggestionCardLocked]}>
           <View style={styles.aiSuggestionHeader}>
             <View style={styles.aiSuggestionTitle}>
               <IconSymbol
                 ios_icon_name="sparkles"
                 android_material_icon_name="auto-awesome"
                 size={20}
-                color={colors.primary}
+                color={isPremium ? colors.primary : colors.textSecondary}
               />
-              <Text style={styles.aiSuggestionTitleText}>Smart Suggestion</Text>
+              <Text style={[styles.aiSuggestionTitleText, !isPremium && styles.aiSuggestionTitleTextLocked]}>
+                AI Smart Suggestion
+              </Text>
+              {!isPremium && (
+                <View style={styles.premiumBadge}>
+                  <IconSymbol
+                    ios_icon_name="lock.fill"
+                    android_material_icon_name="lock"
+                    size={12}
+                    color={colors.card}
+                  />
+                  <Text style={styles.premiumBadgeText}>Premium</Text>
+                </View>
+              )}
             </View>
             <TouchableOpacity 
               onPress={() => setShowAISuggestion(false)}
@@ -224,15 +318,35 @@ export default function HomeScreen() {
               />
             </TouchableOpacity>
           </View>
-          <Text style={styles.aiSuggestionText}>
-            Looks like you usually shop on Fridays. Want to add shopping to your calendar?
+          <Text style={[styles.aiSuggestionText, !isPremium && styles.aiSuggestionTextLocked]}>
+            {isPremium 
+              ? (aiMealSuggestion || 'Get AI-powered meal suggestions based on your household preferences.')
+              : 'Upgrade to premium to get AI-powered meal suggestions and smart automation.'}
           </Text>
           <TouchableOpacity 
-            style={styles.aiSuggestionButton}
-            onPress={() => router.push('/(tabs)/calendar')}
+            style={[styles.aiSuggestionButton, !isPremium && styles.aiSuggestionButtonLocked]}
+            onPress={handleAIMealSuggestion}
+            disabled={aiSuggestionLoading}
             activeOpacity={0.7}
           >
-            <Text style={styles.aiSuggestionButtonText}>Add Suggested Event</Text>
+            {aiSuggestionLoading ? (
+              <ActivityIndicator size="small" color={colors.card} />
+            ) : (
+              <React.Fragment>
+                {!isPremium && (
+                  <IconSymbol
+                    ios_icon_name="lock.fill"
+                    android_material_icon_name="lock"
+                    size={14}
+                    color={colors.card}
+                    style={{ marginRight: 6 }}
+                  />
+                )}
+                <Text style={styles.aiSuggestionButtonText}>
+                  {isPremium ? 'Get Meal Suggestion' : 'Upgrade to Unlock'}
+                </Text>
+              </React.Fragment>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -470,6 +584,13 @@ export default function HomeScreen() {
           </View>
         )}
       </View>
+
+      {/* Upgrade Prompt Modal */}
+      <UpgradePrompt
+        visible={showUpgradePrompt}
+        onClose={() => setShowUpgradePrompt(false)}
+        feature="AI Smart Features"
+      />
     </ScrollView>
   );
 }
@@ -558,6 +679,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  syncButtonDisabled: {
+    backgroundColor: colors.textSecondary,
   },
   syncButtonText: {
     color: colors.card,
@@ -598,6 +724,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
   },
+  aiSuggestionCardLocked: {
+    backgroundColor: '#F5F5F5',
+    borderColor: colors.textSecondary,
+  },
   aiSuggestionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -614,11 +744,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
   },
+  aiSuggestionTitleTextLocked: {
+    color: colors.textSecondary,
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  premiumBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.card,
+  },
   aiSuggestionText: {
     fontSize: 14,
     color: colors.text,
     marginBottom: 12,
     lineHeight: 20,
+  },
+  aiSuggestionTextLocked: {
+    color: colors.textSecondary,
   },
   aiSuggestionButton: {
     backgroundColor: colors.primary,
@@ -626,6 +777,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiSuggestionButtonLocked: {
+    backgroundColor: colors.textSecondary,
   },
   aiSuggestionButtonText: {
     color: colors.card,
