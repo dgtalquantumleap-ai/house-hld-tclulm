@@ -17,6 +17,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationsProvider } from "@/contexts/NotificationsProvider";
+import { PushNotificationsProvider } from "@/contexts/PushNotificationsProvider";
 import { RealtimeProvider } from "@/contexts/RealtimeProvider";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 
@@ -88,54 +89,56 @@ export default function RootLayout() {
           value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
         >
           <NotificationsProvider>
-            <RealtimeProvider>
-              <WidgetProvider>
-                <GestureHandlerRootView>
-                  <Stack screenOptions={{ headerShown: false }}>
-                    {/* Auth screens */}
-                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                    
-                    {/* Main app with tabs */}
-                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <PushNotificationsProvider>
+              <RealtimeProvider>
+                <WidgetProvider>
+                  <GestureHandlerRootView>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      {/* Auth screens */}
+                      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                      
+                      {/* Main app with tabs */}
+                      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-                    {/* Household setup */}
-                    <Stack.Screen name="household-setup" options={{ headerShown: false }} />
+                      {/* Household setup */}
+                      <Stack.Screen name="household-setup" options={{ headerShown: false }} />
 
-                    {/* Debug screens */}
-                    <Stack.Screen name="auth-debug" options={{ headerShown: false }} />
-                    <Stack.Screen name="error-test" options={{ headerShown: false }} />
-                    <Stack.Screen name="validation-dashboard" options={{ headerShown: false }} />
+                      {/* Debug screens */}
+                      <Stack.Screen name="auth-debug" options={{ headerShown: false }} />
+                      <Stack.Screen name="error-test" options={{ headerShown: false }} />
+                      <Stack.Screen name="validation-dashboard" options={{ headerShown: false }} />
 
-                    {/* Modal Demo Screens */}
-                    <Stack.Screen
-                      name="modal"
-                      options={{
-                        presentation: "modal",
-                        title: "Standard Modal",
-                      }}
-                    />
-                    <Stack.Screen
-                      name="formsheet"
-                      options={{
-                        presentation: "formSheet",
-                        title: "Form Sheet Modal",
-                        sheetGrabberVisible: true,
-                        sheetAllowedDetents: [0.5, 0.8, 1.0],
-                        sheetCornerRadius: 20,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="transparent-modal"
-                      options={{
-                        presentation: "transparentModal",
-                        headerShown: false,
-                      }}
-                    />
-                  </Stack>
-                  <SystemBars style={"auto"} />
-                </GestureHandlerRootView>
-              </WidgetProvider>
-            </RealtimeProvider>
+                      {/* Modal Demo Screens */}
+                      <Stack.Screen
+                        name="modal"
+                        options={{
+                          presentation: "modal",
+                          title: "Standard Modal",
+                        }}
+                      />
+                      <Stack.Screen
+                        name="formsheet"
+                        options={{
+                          presentation: "formSheet",
+                          title: "Form Sheet Modal",
+                          sheetGrabberVisible: true,
+                          sheetAllowedDetents: [0.5, 0.8, 1.0],
+                          sheetCornerRadius: 20,
+                        }}
+                      />
+                      <Stack.Screen
+                        name="transparent-modal"
+                        options={{
+                          presentation: "transparentModal",
+                          headerShown: false,
+                        }}
+                      />
+                    </Stack>
+                    <SystemBars style={"auto"} />
+                  </GestureHandlerRootView>
+                </WidgetProvider>
+              </RealtimeProvider>
+            </PushNotificationsProvider>
           </NotificationsProvider>
         </ThemeProvider>
       </AuthProvider>
