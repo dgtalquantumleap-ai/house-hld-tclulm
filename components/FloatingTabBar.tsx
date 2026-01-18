@@ -4,6 +4,7 @@ import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { IconSymbol } from './IconSymbol';
 import { colors } from '@/styles/commonStyles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface TabBarItem {
   name: string;
@@ -19,6 +20,7 @@ interface FloatingTabBarProps {
 export default function FloatingTabBar({ tabs }: FloatingTabBarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   const isActive = (route: string) => {
     return pathname.startsWith(route);
@@ -43,8 +45,11 @@ export default function FloatingTabBar({ tabs }: FloatingTabBarProps) {
     };
   };
 
+  // Calculate proper bottom padding with safe area
+  const containerPaddingBottom = Platform.OS === 'ios' ? insets.bottom + 8 : 16;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: containerPaddingBottom }]}>
       <View style={styles.tabBar}>
         {tabs.map((tab) => {
           const active = isActive(tab.route);
@@ -75,7 +80,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 16,
     paddingHorizontal: 16,
     backgroundColor: 'transparent',
     pointerEvents: 'box-none',

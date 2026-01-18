@@ -4,9 +4,12 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform } from 'react-native';
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading } = useAuth();
+  const insets = useSafeAreaInsets();
 
   if (isLoading) {
     return null;
@@ -16,41 +19,46 @@ export default function TabLayout() {
     return <Redirect href="/(auth)" />;
   }
 
+  // Calculate proper tab bar height with safe area
+  const tabBarHeight = Platform.OS === 'ios' ? 65 + insets.bottom : 70;
+  const tabBarPaddingBottom = Platform.OS === 'ios' ? insets.bottom : 8;
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#4A90E2',
         tabBarInactiveTintColor: '#666666',
-        tabBarShowLabel: true,  // EXPLICITLY SET TO TRUE
+        tabBarShowLabel: true,
         headerShown: false,
         tabBarStyle: {
-          height: 90,  // TALLER
-          paddingBottom: 25,  // MORE PADDING
-          paddingTop: 10,
+          height: tabBarHeight,
+          paddingBottom: tabBarPaddingBottom,
+          paddingTop: 8,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
+          position: 'absolute',
         },
         tabBarLabelStyle: {
-          fontSize: 14,  // BIGGER - 13 → 14
-          marginBottom: 3,
-          marginTop: 0,
-          fontWeight: '600',  // BOLDER - 500 → 600
-          color: '#333333',  // EXPLICIT COLOR
+          fontSize: 12,
+          marginTop: 4,
+          marginBottom: 0,
+          fontWeight: '600',
         },
         tabBarItemStyle: {
-          paddingVertical: 8,
-          height: 80,
+          paddingVertical: 4,
+          justifyContent: 'center',
+          alignItems: 'center',
         },
         tabBarIconStyle: {
-          marginBottom: 0,
+          marginTop: 4,
         },
       }}
     >
       <Tabs.Screen
         name="(home)"
         options={{
-          title: 'Home',  // MUST HAVE
+          title: 'Home',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -59,7 +67,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="tasks"
         options={{
-          title: 'Tasks',  // MUST HAVE
+          title: 'Tasks',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="checkmark-circle" size={size} color={color} />
           ),
@@ -68,7 +76,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendar',  // MUST HAVE
+          title: 'Calendar',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar" size={size} color={color} />
           ),
@@ -90,7 +98,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="shopping"
         options={{
-          title: 'Shopping',  // MUST HAVE
+          title: 'Shopping',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cart" size={size} color={color} />
           ),
@@ -99,7 +107,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',  // MUST HAVE
+          title: 'Profile',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),

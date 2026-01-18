@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "House HLD",
@@ -17,6 +18,11 @@
       "bundleIdentifier": "com.yourcompany.househld",
       "buildNumber": "13",
       "icon": "./assets/images/0c365fa9-e8bb-4410-870f-b3f5a99fd37b.png",
+      "splash": {
+        "image": "./assets/images/0c365fa9-e8bb-4410-870f-b3f5a99fd37b.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff"
+      },
       "infoPlist": {
         "UIBackgroundModes": [
           "fetch",
@@ -30,6 +36,11 @@
         "foregroundImage": "./assets/images/342d6f1f-9bbc-4d4a-b7ee-53db01ab96fe.png",
         "backgroundColor": "#FFFFFF"
       },
+      "splash": {
+        "image": "./assets/images/0c365fa9-e8bb-4410-870f-b3f5a99fd37b.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff"
+      },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.HouseHLD",
       "versionCode": 13
@@ -41,7 +52,16 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/0c365fa9-e8bb-4410-870f-b3f5a99fd37b.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
     ],
     "scheme": "househld",
     "experiments": {

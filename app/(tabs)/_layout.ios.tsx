@@ -4,9 +4,11 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading } = useAuth();
+  const insets = useSafeAreaInsets();
 
   if (isLoading) {
     return null;
@@ -16,19 +18,38 @@ export default function TabLayout() {
     return <Redirect href="/(auth)" />;
   }
 
+  // Calculate proper tab bar height with safe area for iOS
+  const tabBarHeight = 65 + insets.bottom;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#6366F1',
         tabBarInactiveTintColor: '#9CA3AF',
+        tabBarShowLabel: true,
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
-          paddingBottom: 8,
+          paddingBottom: insets.bottom,
           paddingTop: 8,
-          height: 60,
+          height: tabBarHeight,
+          position: 'absolute',
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          marginTop: 4,
+          marginBottom: 0,
+          fontWeight: '600',
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
         },
       }}
     >
