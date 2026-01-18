@@ -18,8 +18,8 @@ export default function TabLayout() {
     return <Redirect href="/(auth)" />;
   }
 
-  // Calculate proper tab bar height with safe area for iOS
-  const tabBarHeight = 65 + insets.bottom;
+  // Calculate proper tab bar height with safe area for iOS - increased for 6 tabs with labels
+  const tabBarHeight = 80 + insets.bottom;
 
   return (
     <Tabs
@@ -32,24 +32,26 @@ export default function TabLayout() {
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
-          paddingBottom: insets.bottom,
-          paddingTop: 8,
+          paddingBottom: insets.bottom + 4,
+          paddingTop: 10,
           height: tabBarHeight,
           position: 'absolute',
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          marginTop: 4,
-          marginBottom: 0,
+          fontSize: 11,
+          marginTop: 2,
+          marginBottom: 2,
           fontWeight: '600',
         },
         tabBarItemStyle: {
-          paddingVertical: 4,
+          paddingVertical: 6,
           justifyContent: 'center',
           alignItems: 'center',
+          height: '100%',
         },
         tabBarIconStyle: {
-          marginTop: 4,
+          marginTop: 2,
+          marginBottom: 0,
         },
       }}
     >
@@ -58,7 +60,7 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons name="home" size={22} color={color} />
           ),
         }}
       />
@@ -67,7 +69,7 @@ export default function TabLayout() {
         options={{
           title: 'Tasks',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="checkmark-circle" size={size} color={color} />
+            <Ionicons name="checkmark-circle" size={22} color={color} />
           ),
         }}
       />
@@ -76,7 +78,7 @@ export default function TabLayout() {
         options={{
           title: 'Calendar',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" size={size} color={color} />
+            <Ionicons name="calendar" size={22} color={color} />
           ),
         }}
       />
@@ -87,7 +89,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? 'restaurant' : 'restaurant-outline'} 
-              size={24} 
+              size={22} 
               color={color} 
             />
           ),
@@ -98,7 +100,7 @@ export default function TabLayout() {
         options={{
           title: 'Shopping',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cart" size={size} color={color} />
+            <Ionicons name="cart" size={22} color={color} />
           ),
         }}
       />
@@ -107,7 +109,7 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+            <Ionicons name="person" size={22} color={color} />
           ),
         }}
       />
