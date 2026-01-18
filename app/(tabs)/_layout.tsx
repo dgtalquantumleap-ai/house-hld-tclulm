@@ -19,9 +19,9 @@ export default function TabLayout() {
     return <Redirect href="/(auth)" />;
   }
 
-  // Calculate proper tab bar height with safe area - increased for 6 tabs with labels
-  const tabBarHeight = Platform.OS === 'ios' ? 80 + insets.bottom : 85;
-  const tabBarPaddingBottom = Platform.OS === 'ios' ? insets.bottom + 4 : 12;
+  // Increased tab bar height to ensure labels are fully visible
+  const tabBarHeight = Platform.OS === 'ios' ? 90 + insets.bottom : 95;
+  const tabBarPaddingBottom = Platform.OS === 'ios' ? insets.bottom + 8 : 16;
 
   return (
     <Tabs
@@ -33,27 +33,27 @@ export default function TabLayout() {
         tabBarStyle: {
           height: tabBarHeight,
           paddingBottom: tabBarPaddingBottom,
-          paddingTop: 10,
+          paddingTop: 12,
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
           position: 'absolute',
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          marginTop: 2,
-          marginBottom: 2,
+          fontSize: 12,
+          marginTop: 4,
+          marginBottom: 4,
           fontWeight: '600',
         },
         tabBarItemStyle: {
-          paddingVertical: 6,
+          paddingVertical: 8,
           justifyContent: 'center',
           alignItems: 'center',
           height: '100%',
         },
         tabBarIconStyle: {
-          marginTop: 2,
-          marginBottom: 0,
+          marginTop: 4,
+          marginBottom: 2,
         },
       }}
     >
